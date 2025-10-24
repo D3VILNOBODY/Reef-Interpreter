@@ -2,43 +2,40 @@
 
 use std::thread::current;
 
-use crate::{ParseNode, ParseNodeKind, ReefDebuggable, Token};
+use crate::ReefDebuggable;
+use crate::syntax::node::Node;
+use crate::syntax::token::{Token, TokenType};
 
 /// The parser is responsible for reading a stream of tokens and outputting
 /// an abstract syntax tree representation of the program.
 pub struct Parser {
-    ast: ParseNode,
+    ast: Node,
     current: usize,
     token_stream: Vec<Token>,
+    debug: bool,
 }
 
 impl Parser {
-    pub fn new(token_stream: Vec<Token>) -> Self {
+    pub fn new(token_stream: Vec<Token>, debug: bool) -> Self {
         Self {
             token_stream,
-            ast: ParseNode::new(ParseNodeKind::Program),
+            ast: Node::Program { children: vec![] },
             current: 0,
+            debug,
         }
     }
 
-    pub fn parse_tokens(&mut self) -> ParseNode {
-        let mut base_node = ParseNode::new(ParseNodeKind::Program);
-
+    pub fn parse(&mut self) {
         while !self.is_at_end() {
-            let next_node = ParseNode::new(ParseNodeKind::Product);
-
-            base_node.add_child(next_node);
         }
-
-        base_node
     }
 
-    pub fn get_program_node(&self) -> &ParseNode {
+    pub fn get_program_node(&self) -> &Node {
         &self.ast
     }
 
     fn is_at_end(&self) -> bool {
-        *self.peek().unwrap() == Token::EndOfFile
+        self.peek().unwrap().kind == TokenType::EndOfFile
     }
 
     fn match_types(t: &Vec<Token>) {
@@ -64,19 +61,52 @@ impl Parser {
         self.token_stream.get(self.current)
     }
 
+    fn stmt(&mut self) {
+        let next_token = self.get_next_token();
+
+        match next_token.kind {
+            TokenType::Number => self.binary_expr(),
+            _ => panic!("UNHANDLED TOKEN! SORRY CUH!"),
+        }
+    }
+
+    fn binary_expr(&mut self) -> Node {
+        let lhs = self.get_current_token();
+        let operator = self.get_next_token();
+        let rhs = self.expr();
+
+        match operator.value.as_str() {
+            "+" | "-" => Node::AdditiveExpression {
+                lhs: Box::from(Node::NumberLiteral(lhs.value.parse::<f64>().unwrap())),
+                rhs: Box::from(rhs),
+                operator: operator.value.clone()
+            },
+            "*" | "/" | "%" => Node::MultiplicativeExpression {
+                lhs: Box::from(Node::NumberLiteral(lhs.value.parse::<f64>().unwrap())),
+                rhs: Box::from(rhs),
+                operator: operator.value.clone()
+            },
+            _ => panic!("Nope"),
+        }
+    }
+
     /// Base method for parsing any type of expression. Gets the next token from the
     /// stream and matches it, calling the relevant function and appending the returned
     /// node to the return node.
-    fn expr(&mut self) -> ParseNode {
+    fn expr(&mut self) -> Node {
         let next = self.get_next_token();
 
         match *next {
-            Token::Number(number) => {
-            },
+            Token::Number(_) => {
+                let next = self.peek_next_token();
+                match *next {
+                    Token::Operator(_) => self.binary_expr(),
+                    _ => panic!("WHAT! YOU CANT GIVE ME {:?}", next),
+                }
+            }
+            Token::String(_) => {}
             _ => {}
         }
-
-        ParseNode::new(ParseNodeKind::Product)
     }
 
     // fn paren_expr(&mut self) -> ParseNode {
@@ -90,14 +120,20 @@ impl Parser {
     //     self.get_next_token(); // Consume ')'
     // }
 
-    fn parse_ident_expr(&mut self) -> ParseNode {
-        ParseNode::new(ParseNodeKind::Product)
+    fn get_current_token(&self) -> &Token {
+        let current_token = self.token_stream.get(self.current);
+        current_token.unwrap()
     }
 
     fn get_next_token(&mut self) -> &Token {
         self.current += 1;
 
         let next_token = self.token_stream.get(self.current);
+        next_token.unwrap()
+    }
+
+    fn peek_next_token(&self) -> &Token {
+        let next_token = self.token_stream.get(self.current + 1);
         next_token.unwrap()
     }
 }

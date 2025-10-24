@@ -1,0 +1,4 @@
+log 10;
+log "Guhhh";
+log true, false;  -- Prints arguments one after another
+log 0.1, 1, 10;

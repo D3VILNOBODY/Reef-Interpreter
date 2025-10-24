@@ -1,0 +1,13 @@
+-- Runs while counter is less than 10
+var counter = 0;
+for (counter < 10)
+{
+    log "Shark", counter;
+    counter = counter + 1;
+}
+
+-- Runs forever!
+for (true)
+{
+    log "yeehaw";
+}

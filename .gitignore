@@ -1,3 +1,4 @@
 /target
 .vscode/
-*_debug.txt
+*.log
+.idea/

@@ -5,23 +5,33 @@
 
 #![allow(unused)]
 
-use reef_core::{parser::Parser, scanner::Scanner, ReefDebuggable, Token};
-use std::{env, fs::read_to_string, path::Path};
-use std::collections::HashMap;
+use reef_core::{scanner::Scanner, ReefDebuggable};
+use reef_core::syntax::token::Token;
+use std::{env, fs, path};
+use clap::Parser as ClapParser;
 
-const DEBUG_ENV_VAR: &str = "REEF_DEBUG"; // The environment variable for debug mode. If 1, run debug functions
+/*
+    Argument struct that stores data collected from command line arguments.
+    Uses clap to parse the data i need out, such as debug lvl and path.
+ */
+#[derive(ClapParser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(help = "The file with the source code inside")]
+    path: path::PathBuf,
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
+    #[arg(short='d', long = "debug", default_value_t = 0, help = "Activates debug features")]
+    debug: u8,
 }
 
-/// Wrapper for `fs::read_to_string` which unwraps the text or panics
-fn read_file(file_path: &Path) -> String {
-    let res = read_to_string(file_path);
-    if res.is_err() {
-        panic!("{}", res.unwrap_err());
+fn main() {
+    let args = Args::parse();
+    let source_code = fs::read_to_string(&args.path).expect("Failed to read file");
+
+    let mut scanner = Scanner::new(&source_code);
+    if args.debug > 0 {
+        scanner.set_debug_lvl(args.debug);
     }
 
-    res.unwrap()
+    scanner.scan();
 }

@@ -1,0 +1,6 @@
+fun AddTwoNumbers(a, b)
+{
+    return a + b;
+}
+
+log AddTwoNumbers(5, 10);

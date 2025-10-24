@@ -1,9 +1,12 @@
 #![allow(unused)]
 
-use crate::{ReefDebuggable, Token};
+use crate::syntax::token::{Token, TokenType};
+use crate::ReefDebuggable;
 use std::str::Chars;
 use std::thread::current;
 use std::{collections::HashMap, fs::write, path::Path};
+
+const SCANNER_DEBUG_FILE_NAME: &str = "scanner.log";
 
 /// Scanner is responsible for converting text input into a stream of tokens
 /// which represent the smallest components of a program. It is a struct so
@@ -16,6 +19,7 @@ pub struct Scanner<'a> {
     current: usize,
     line: i32,
     keywords: HashMap<&'a str, &'a str>,
+    debug: u8,
 }
 
 impl<'a> Scanner<'a> {
@@ -52,14 +56,20 @@ impl<'a> Scanner<'a> {
             current: 0,
             line: 1,
             keywords: keyword_map,
+            debug: 0,
         }
+    }
+
+    /// Debug mode on the scanner makes it create an output file and put the tokens it generated in there
+    pub fn set_debug_lvl(&mut self, debug_lvl: u8) {
+        self.debug = debug_lvl;
     }
 
     /// Scan the input text and break it down into the smallest components.
     /// Token definitions can be found in ./lib.rs
     pub fn scan(&mut self) {
         let mut current_char: Option<&u8>;
-        while !self.is_at_end() {
+        while self.current < self.text.len() {
             current_char = self.text.get(self.current);
 
             let c = current_char.unwrap();
@@ -69,53 +79,53 @@ impl<'a> Scanner<'a> {
                     self.current += 1;
                 }
                 '+' | '=' | '<' | '>' | '*' | '/' => {
-                    let tk = self.scan_operator();
-                    self.add_token(tk);
+                    let (t, v) = self.scan_operator();
+                    self.add_token(t, v);
                 }
                 'a'..='z' | 'A'..='Z' | '_' => {
-                    let tk = self.scan_ident();
-                    self.add_token(tk);
+                    let (t, v) = self.scan_ident();
+                    self.add_token(t, v);
                 }
                 '0'..='9' => {
-                    let tk = self.scan_number();
-                    self.add_token(tk);
+                    let (t, v) = self.scan_number();
+                    self.add_token(t, v);
                 }
                 '-' => self.handle_hyphen(),
                 '"' => {
-                    let tk = self.scan_string();
-                    self.add_token(tk);
+                    let (t, v) = self.scan_string();
+                    self.add_token(t, v);
                     self.advance();
                 }
                 ':' => {
-                    self.add_token(Token::Colon);
+                    self.add_token(TokenType::Colon, String::from(":"));
                     self.advance();
                 }
                 ';' => {
-                    self.add_token(Token::Semicolon);
+                    self.add_token(TokenType::Semicolon, String::from(";"));
                     self.advance();
                 }
                 '(' => {
-                    self.add_token(Token::LParen);
+                    self.add_token(TokenType::LeftParen, String::from("("));
                     self.advance();
                 }
                 ')' => {
-                    self.add_token(Token::RParen);
+                    self.add_token(TokenType::RightParen, String::from(")"));
                     self.advance();
                 }
                 '{' => {
-                    self.add_token(Token::LBrace);
+                    self.add_token(TokenType::LeftBrace, String::from("{"));
                     self.advance();
                 }
                 '}' => {
-                    self.add_token(Token::RBrace);
+                    self.add_token(TokenType::RightBrace, String::from("}"));
                     self.advance();
                 }
                 ',' => {
-                    self.add_token(Token::Comma);
+                    self.add_token(TokenType::Comma, String::from(","));
                     self.advance();
                 }
                 '.' => {
-                    self.add_token(Token::Dot);
+                    self.add_token(TokenType::Dot, String::from("."));
                     self.advance();
                 }
                 c if c.is_whitespace() => {
@@ -127,19 +137,20 @@ impl<'a> Scanner<'a> {
             };
         }
 
-        self.add_token(Token::EndOfFile);
+        self.add_token(TokenType::EndOfFile, String::new());
+
+        if self.debug > 0 {
+            self.debug_write_to_file(SCANNER_DEBUG_FILE_NAME);
+        }
     }
 
     pub fn get_tokens(&self) -> &Vec<Token> {
         &self.tokens
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current < self.text.len()
-    }
-
     /// Add a token to the list of tokens stored in the scanner state.
-    fn add_token(&mut self, token: Token) {
+    fn add_token(&mut self, kind: TokenType, value: String) {
+        let token = Token::new(kind, value);
         self.tokens.push(token);
     }
 
@@ -164,36 +175,31 @@ impl<'a> Scanner<'a> {
     /// which type of token it is supposed to be and calls the correct function to scan
     /// it fully.
     fn handle_hyphen(&mut self) {
+        // consume the hyphen
         self.advance();
 
-        let next_char = self.text.get(self.current);
-        if next_char.is_none() {
-            return;
-        }
+        // get the next character
+        let next_char = char::from(*self.text.get(self.current).unwrap());
 
-        let c = char::from(*next_char.unwrap());
-
-        match c {
+        match next_char {
             '-' => {
-                let comment_token = self.scan_comment();
-                self.add_token(comment_token);
+                let (t, v) = self.scan_comment();
+                self.add_token(t, v);
             }
-            '>' => {
-                self.add_token(Token::Operator(String::from("->")));
-                self.advance();
+            _ => {
+                self.add_token(TokenType::Operator, String::from("-"))
             }
-            _ => self.add_token(Token::Operator(String::from(c))),
         }
     }
 
     /// Scan characters that make up an int/float and convert it into a 64 bit
     /// floating point number. This method can panic if there are multiple "."
-    fn scan_number(&mut self) -> Token {
-        let mut collected = String::new();
+    fn scan_number(&mut self) -> (TokenType, String) {
+        let mut buf = String::new();
         let first_char = self.text.get(self.current);
         if first_char.is_some() {
             // Add the first character of the identifier
-            collected.push(char::from(*first_char.unwrap()));
+            buf.push(char::from(*first_char.unwrap()));
             self.advance();
 
             loop {
@@ -205,7 +211,7 @@ impl<'a> Scanner<'a> {
 
                 if c.is_ascii_digit() || c == '.' {
                     self.advance();
-                    collected.push(c);
+                    buf.push(c);
                     continue;
                 } else if c == '_' {
                     self.advance();
@@ -216,38 +222,32 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        let parsed_number = collected.parse::<f64>();
-        if parsed_number.is_err() {
-            panic!("Failed to parse {} to a number.", collected);
-        }
-
-        Token::Number(parsed_number.unwrap())
+        (TokenType::Number, buf)
     }
 
     /// Constructs an operator token, starting with one of a select few
     /// characters.
-    fn scan_operator(&mut self) -> Token {
-        let mut collected = String::new();
+    fn scan_operator(&mut self) -> (TokenType, String) {
+        let mut buf = String::new();
         let current_char = char::from(*self.text.get(self.current).unwrap());
-        dbg!(current_char);
 
         match current_char {
             '=' => {
-                collected.push(current_char);
+                buf.push(current_char);
                 self.advance();
             }
             '+' | '/' | '*' | '<' | '>' => {
-                collected.push(current_char);
+                buf.push(current_char);
                 self.advance();
             }
             _ => {}
         };
 
-        Token::Operator(collected)
+        (TokenType::Operator, buf)
     }
 
     /// Save the contents of a comment as a string for potential use in the parser.
-    fn scan_comment(&mut self) -> Token {
+    fn scan_comment(&mut self) -> (TokenType, String) {
         let mut buf = String::new();
         let mut current_char = self.text.get(self.current);
         if current_char.is_some() {
@@ -255,7 +255,7 @@ impl<'a> Scanner<'a> {
 
             loop {
                 current_char = self.text.get(self.current);
-                if current_char.is_none() {
+                if current_char.is_none() || char::from(*current_char.unwrap()) == '\n' {
                     break;
                 }
 
@@ -264,12 +264,12 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        Token::Comment(buf)
+        (TokenType::Comment, buf)
     }
 
     /// Scans user defined identifiers, or if the identifier matches the name
     /// of a keyword, return a keyword token instead.
-    fn scan_ident(&mut self) -> Token {
+    fn scan_ident(&mut self) -> (TokenType, String) {
         let mut buf = String::new();
         let mut current_char = self.text.get(self.current);
         if current_char.is_some() {
@@ -292,26 +292,26 @@ impl<'a> Scanner<'a> {
                     self.advance();
                     continue;
                 } else {
-                    // Stop because the number has ended
                     break;
                 }
             }
         }
 
         if self.is_keyword(&buf) {
-            Token::Keyword(buf)
+            (TokenType::Keyword, buf)
         } else {
-            Token::Ident(buf)
+            (TokenType::Identifier, buf)
         }
     }
 
     /// Scans a string. A string starts and ends with a double quote, with the
     /// text in between them.
-    fn scan_string(&mut self) -> Token {
+    fn scan_string(&mut self) -> (TokenType, String) {
         // Consume the first double quote
         self.advance();
 
         let mut buf = String::new();
+
         loop {
             // Get the character at index ptr
             let current_char = self.text.get(self.current);
@@ -320,19 +320,16 @@ impl<'a> Scanner<'a> {
             }
 
             let c = char::from(*current_char.unwrap());
-            match c {
-                '\"' => {
-                    self.advance();
-                    buf.push(c);
-                }
-                _ => {
-                    self.advance();
-                    break;
-                }
+            if c == '"' {
+                // self.advance();
+                break;
+            } else {
+                buf.push(c);
+                self.advance();
             }
         }
 
-        Token::String(buf)
+        (TokenType::String, buf)
     }
 }
 
