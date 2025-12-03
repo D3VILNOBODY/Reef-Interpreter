@@ -1,45 +1,41 @@
-use std::fmt::{Display, Formatter};
+#![allow(unused)]
+
+use std::fmt;
 
 /// Different types of tokens which can be returned by the scanner.
-#[derive(Debug, Clone, PartialEq)]
-pub enum TokenType {
-    Operator,
-    Keyword,
-    Identifier,
-    String,
-    Number,
-    Comment,
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Semicolon,
-    Colon,
-    Comma,
-    Dot,
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Token<'a> {
+    Comment(&'a str),
+    String(&'a str),
+    Keyword(&'a str),
+    Number(&'a str),
+    Identifier(&'a str),
+    Delimiter(char),          // (, ), [, ], {, }, ;, :
+    BinaryOperator(char),     // +, -, /, *
+    ComparisonOperator(char), // <, >
+    Illegal(char),
+    Equals,
     EndOfFile,
 }
 
-#[derive(Debug, Clone)]
-pub struct Token {
-    pub kind: TokenType,
-    pub value: String,
-}
-
-impl Display for TokenType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl<'a> fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl Token {
-    pub fn new(kind: TokenType, value: String) -> Self {
-        Self { kind, value }
-    }
-}
+/// Wrapper type for Vec<Token> which allows it to be displayed.
+/// Used to print out token vectors and write them to files.
+pub struct TokenDisplay<'a>(pub &'a [Token<'a>]);
 
-impl Display for Token {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(type: {}, value: '{}')", self.kind, self.value)
+impl<'a> fmt::Display for TokenDisplay<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "[")?;
+        for item in self.0 {
+            writeln!(f, "\t{},", item)?;
+        }
+        writeln!(f, "]")?;
+
+        Ok(())
     }
 }

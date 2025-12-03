@@ -1,0 +1,36 @@
+Alphabet            ::= 'a' ... 'z' | 'A' ... 'Z'
+Digit               ::= '0' ... '9'
+Number              ::= Digit { Digit } [ '.' Digit { Digit } ]
+Identifier          ::= Alphabet | '_' { Alphabet | Digit | '_' }
+Boolean             ::= 'true' | 'false'
+Delimiter           ::= '(' | ')' | '[' | ']' | '{' | '}'
+Operator            ::= '=' | '+' | '-' | '/' | '*'
+
+FunctionName        ::= Identifier
+FunctionParameters  ::= '(' [ Identifier { ',' Identifier } ] ')'
+FunctionArguments   ::= '(' [ Expression { ',' Expression } ] ')'
+StructName          ::= Identifier
+StructFields        ::= '{' { Identifier { ',' Identifier } } '}'
+
+Expression          ::= AdditiveExpr | MultiplicativeExpr | GroupExpr
+                        | Functioncall | ComparisonExpr | ConditionalExpr
+                        | StructInit | NumberLiteral | StringLiteral
+NumberLiteral       ::= Number
+StringLiteral       ::= '"' { Any } '"'
+AdditiveExpr        ::= Expression '+' | '-' Expression
+MultiplicativeExpr  ::= Expression '*' | '/' | '%' Expression
+FunctionCall        ::= FunctionName FunctionArguments
+StructInit          ::= StructName '{' { Identifier ':' Expression } '}'
+GroupExpr           ::= '(' { Expression } ')'
+ComparisonExpr      ::= Expression '>' | '>=' | '<' | '<=' | '==' Expression
+ConditionalExpr     ::= [ 'not' ] ComparisonExpr | Boolean { 'or' | 'and' [ 'not' ] ComparisonExpr }
+
+Statement           ::= VariableDeclaration | FunctionDeclaration | Log
+                        | Loop | StructDeclaration | Return
+CompoundStatement   ::= '{' { Statement } '}'
+VariableDeclaration ::= 'var' Identifier [ '=' Expression ] ';'
+FunctionDeclaration ::= 'fun' FunctionName FunctionParameters CompoundStatement
+Log                 ::= 'log' Expression { ',' Expression } ';'
+Loop                ::= 'for' '(' ConditionalExpr ')' CompoundStatement
+Return              ::= 'return' Expression
+StructDeclaration   ::= 'struct' StructName StructFields

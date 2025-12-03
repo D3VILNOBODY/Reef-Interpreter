@@ -19,43 +19,47 @@ pub enum ComparisonOperator {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    CompoundStatement(Vec<Stmt>),
-    LogStatement(Vec<Expr>),
-    ReturnStatement(Expr),
+    CompoundStatement(Vec<Stmt>), // { ...stmt }
+    ExpressionStatement(Expr),    // any expr;
+    LogStatement(Vec<Expr>),      // log ...expr;
+    ReturnStatement(Expr),        // return expr;
     ForLoop {
         condition: Expr,
         body: Box<Stmt>,
-    },
+    }, // for (condition) do { ...stmt }
     VariableDeclaration {
         name: String,
-        value: Option<Expr>,
-    },
+        value: Expr, // might change this to Option<Expr> to allow for uninitialised vars
+    }, // var var_name = expr;
     FunctionDeclaration {
         name: String,
         parameters: Vec<FunctionParameter>,
         body: Box<Stmt>,
-    },
+    }, // fun func_name(...params) { ...stmt }
 }
 
 #[derive(Debug, Clone)]
 pub enum Expr {
     NumberLiteral(f64),
     StringLiteral(String),
+    Identifier(String),
     NilLiteral,
+
+    // expr  > | < | <= | >= | == | != expr
     ComparisonExpression {
         lhs: Box<Expr>,
         rhs: Box<Expr>,
         operator: ComparisonOperator,
     },
     BinaryExpression {
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
+        left_side: Box<Expr>,
+        right_side: Box<Expr>,
         operator: BinaryExprOperator,
     },
     FunctionCall {
-        name: String,
+        func_name: String,
         arguments: Vec<FunctionArgument>,
-    },
+    }, // func_name(...expr)
 }
 
 #[derive(Debug, Clone)]
