@@ -5,9 +5,6 @@
    It constructs parse nodes from a vector of tokens.
 */
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryExprOperator(pub char);
-
 #[derive(Debug, Clone)]
 pub enum ComparisonOperator {
     LessThan,
@@ -15,6 +12,15 @@ pub enum ComparisonOperator {
     EqualTo,
     LessThanOrEqualTo,
     GreaterThanOrEqualTo,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinaryExprOperator {
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    Modulus,
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +49,7 @@ pub enum Expr {
     NumberLiteral(f64),
     StringLiteral(String),
     Identifier(String),
+    GroupExpression(Box<Expr>),
     NilLiteral,
 
     // expr  > | < | <= | >= | == | != expr
