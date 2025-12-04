@@ -21,17 +21,14 @@ fn main() {
     let mut scanner = lex::Scanner::new(&source_code);
     scanner.scan();
 
-    // let s = TokenDisplay(&scanner.tokens);
-    // write_to_debug_file(s);
-
     let mut parser = parse::Parser::new(scanner.tokens);
     let res = parser.parse();
 
     if res.is_err() {
-        println!("{}", res.unwrap_err());
+        println!("{:?}", res.unwrap_err());
     }
 
-    dbg!(parser.program);
+    write_to_debug_file(format!("{:#?}", parser.program));
 }
 
 /*
