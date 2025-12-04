@@ -21,7 +21,7 @@ mod tests {
             println!("=-=- Source Code -=-=");
             println!("{}", source_code);
             println!("=-=-=-=-=-=-=-=-=-=-=");
-            panic!("{}", res.unwrap_err());
+            panic!("{:?}", res.unwrap_err());
         }
     }
 
