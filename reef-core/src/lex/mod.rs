@@ -174,9 +174,9 @@ impl<'a> Scanner<'a> {
             };
         }
 
-        let sym = &self.text[start..self.current];
-
-        self.tokens.push(Token::Comment(sym));
+        // Removed for sake of simplicity in the parser. Might add this back later :3
+        // let sym = &self.text[start..self.current];
+        // self.tokens.push(Token::Comment(sym));
     }
 
     /// Scans user defined identifiers, or if the identifier matches the name

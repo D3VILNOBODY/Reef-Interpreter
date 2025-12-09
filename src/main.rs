@@ -12,6 +12,10 @@ use reef_core::syntax::token::{Token, TokenDisplay};
 use std::path::Path;
 use std::{env, fmt, fs, path};
 
+use crate::evaluator::Evaluator;
+
+mod evaluator;
+
 const DEBUG_FILE: &str = "REEF_LOG.log";
 
 fn main() {
@@ -25,10 +29,18 @@ fn main() {
     let res = parser.parse();
 
     if res.is_err() {
-        println!("{:?}", res.unwrap_err());
+        use parse::ParserError::*;
+
+        match res.unwrap_err() {
+            SyntaxError { position, message } => println!("pos: {}, {}", position, message),
+            _err => println!("{:?}", _err),
+        }
     }
 
     write_to_debug_file(format!("{:#?}", parser.program));
+
+    let mut evaluator = Evaluator::new(parser.program);
+    evaluator.evaluate_program();
 }
 
 /*

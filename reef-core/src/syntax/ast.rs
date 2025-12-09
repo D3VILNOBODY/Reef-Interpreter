@@ -14,6 +14,12 @@ pub enum ComparisonOperator {
     GreaterThanOrEqualTo,
 }
 
+#[derive(Debug, Clone)]
+pub enum Boolean {
+    True,
+    False,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryExprOperator {
     Plus,
@@ -50,6 +56,7 @@ pub enum Expr {
     StringLiteral(String),
     Identifier(String),
     GroupExpression(Box<Expr>),
+    Boolean(Boolean),
     NilLiteral,
 
     // expr  > | < | <= | >= | == | != expr

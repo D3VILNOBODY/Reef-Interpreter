@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use crate::syntax::{ast::*, token::Token};
-use std::{iter::Peekable, mem};
+use std::{backtrace::Backtrace, iter::Peekable, mem};
 
 /// The parser is responsible for taking a vector of tokens
 /// and producing a tree-like representation of the program
@@ -15,10 +15,9 @@ pub struct Parser<'a> {
 
 #[derive(Debug)]
 pub enum ParserError {
-    SyntaxError(String),
-    CurrentIndexOutOfBounds(String),
+    SyntaxError { position: usize, message: String },
     UnknownToken { position: usize },
-    UnexpectedToken { position: usize },
+    CurrentIndexOutOfBounds(usize),
 }
 
 impl<'a> Parser<'a> {
@@ -37,15 +36,20 @@ impl<'a> Parser<'a> {
         while self.current < self.tokens.len() {
             match self.get_current_token() {
                 // Statements
-                Some(Token::Keyword("var")) => self.variable_declr(),
-                // Token::Keyword("log") => self.log(),
+                Some(Token::Keyword("var")) => self.variable_declaration(),
+                Some(Token::Keyword("log")) => self.log_statement(),
 
                 // Expression statements
-                Some(Token::Identifier(_)) => self.expression_statement(),
-                Some(Token::String(_)) => self.expression_statement(),
-                Some(Token::Number(_)) => self.expression_statement(),
-                Some(Token::Delimiter('(')) => self.expression_statement(),
+                Some(Token::Keyword("true"))
+                | Some(Token::Keyword("false"))
+                | Some(Token::Identifier(_))
+                | Some(Token::String(_))
+                | Some(Token::Number(_))
+                | Some(Token::BinaryOperator('-'))
+                | Some(Token::Delimiter('(')) => self.expression_statement(),
+
                 Some(Token::Delimiter(';')) => Ok(self.advance()),
+
                 _ => Err(ParserError::UnknownToken {
                     position: self.current,
                 }),
@@ -55,43 +59,125 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Attempts to convert n into a number and returns a wrapper around n.
-    fn number_literal(&self, n: &str) -> Expr {
-        let p = n.parse::<f64>();
-
-        match p {
-            Ok(v) => Expr::NumberLiteral(v),
-            Err(e) => {
-                panic!("[!] Error unwrapping {}: {:?}", n, e);
+    /// The base method for parsing any kind of expression.
+    fn expression(&mut self) -> Result<Expr, ParserError> {
+        match self.get_current_token() {
+            Some(Token::Keyword("true")) => Ok(Expr::Boolean(Boolean::True)),
+            Some(Token::Keyword("false")) => Ok(Expr::Boolean(Boolean::False)),
+            Some(Token::Delimiter('(')) => Ok(self.group_expression()?),
+            Some(Token::String(s)) => Ok(self.create_string_literal(s)),
+            Some(Token::BinaryOperator('-')) => {
+                // Skip past the '-'. May cause issues down the line but idc.
+                self.advance();
+                match self.get_current_token() {
+                    Some(Token::Number(n)) => Ok(self.create_number_literal(&*format!("-{}", n))),
+                    _ => Err(ParserError::SyntaxError {
+                        position: self.current,
+                        message: String::new(),
+                    }),
+                }
             }
+            Some(Token::Number(n)) => {
+                let next = self.lookahead(1);
+
+                match next {
+                    Some(Token::BinaryOperator(op)) => Ok(self.binary_expression()?),
+                    _ => Ok(self.create_number_literal(n)),
+                }
+            }
+            Some(Token::Identifier(ident)) => {
+                // TODO: abstract this to a different function
+                let next = self.lookahead(1);
+
+                match next {
+                    Some(Token::BinaryOperator(op)) => Ok(self.binary_expression()?),
+                    _ => Ok(Expr::Identifier(String::from(ident))),
+                }
+            }
+            _t => panic!("[!] {:?}", _t),
         }
     }
 
-    /// Creates a string literal wrapper which contains the string s.
-    fn string_literal(&self, s: &str) -> Expr {
-        println!("{}", self.current);
-        Expr::StringLiteral(String::from(s))
+    fn log_statement(&mut self) -> Result<(), ParserError> {
+        // log expr1, expr2, expr3;
+        // log expr1;
+        // log;
+
+        // Skip past the "log" keyword.
+        self.advance();
+
+        // let expressions = self.parse_call_site_arguments()?;
+        let expressions = vec![self.expression()?];
+
+        self.expect(Token::Delimiter(';'))?;
+
+        self.add_statement(Stmt::LogStatement(expressions));
+
+        Ok(())
+    }
+
+    /// Collects a list of arguments (expressions) separated by commas.
+    /// TODO: fix ts?? it doesnt work
+    fn parse_call_site_arguments(&mut self) -> Result<Vec<Expr>, ParserError> {
+        let mut collected: Vec<Expr> = vec![];
+
+        while let Some(token) = self.get_current_token() {
+            let expr = match token {
+                Token::String(_)
+                | Token::Number(_)
+                | Token::Keyword("true")
+                | Token::Keyword("false") => self.expression()?,
+
+                _ | Token::Delimiter(')') => break,
+            };
+            collected.push(expr);
+
+            let next = self.lookahead(1);
+
+            match next {
+                Some(Token::Delimiter(';')) => {
+                    self.advance();
+                    break;
+                }
+                Some(Token::Delimiter(',')) => {
+                    // Really janky but the first advance skips the expression,
+                    // the second one skips the comma. Im a lil stupid so just
+                    // let it slide.
+                    self.advance();
+                    self.advance();
+                    continue;
+                }
+                _ => {
+                    return Err(ParserError::SyntaxError {
+                        position: self.current,
+                        message: "Syntax error.".to_string(),
+                    })
+                }
+            }
+        }
+
+        Ok(collected)
     }
 
     /// Generates an expression statement. An expression statement is simply an expression
     /// but as a statement. For example, `10 + 5;` is an expression statement.
     fn expression_statement(&mut self) -> Result<(), ParserError> {
-        let expr = self.expr()?;
+        let expr = self.expression()?;
         self.expect(Token::Delimiter(';'))?;
 
-        self.add_node(Stmt::ExpressionStatement(expr));
+        self.add_statement(Stmt::ExpressionStatement(expr));
 
         Ok(())
     }
 
     /// Generates a group expression, which is any expression inside of brackets.
-    fn group_expr(&mut self) -> Result<Expr, ParserError> {
+    fn group_expression(&mut self) -> Result<Expr, ParserError> {
         // Starts with a '(', should also end with a ')'.
 
         // Skip the opening bracket
         self.advance();
 
-        let inner = self.expr()?;
+        let inner = self.expression()?;
 
         self.expect(Token::Delimiter(')'))?;
 
@@ -99,16 +185,45 @@ impl<'a> Parser<'a> {
     }
 
     /// Generates a binary expression, returning Ok if it was successful.
-    fn binary_expr(&mut self) -> Result<Expr, ParserError> {
+    fn binary_expression(&mut self) -> Result<Expr, ParserError> {
         // The left hand side of the binary expression. Creates a number from a Number token,
         // a string from a String token, and keeps track of identifiers. If the current token
         // isn't a valid type, it simply is turned into Nil.
-        let lhs = match self.get_current_token() {
-            Some(Token::Number(n)) => Box::new(self.number_literal(n)),
-            Some(Token::String(s)) => Box::new(self.string_literal(s)),
-            Some(Token::Identifier(i)) => Box::new(Expr::Identifier(String::from(i))),
-            _ => Box::new(Expr::NilLiteral),
-        };
+        let lhs = Box::new(match self.get_current_token() {
+            Some(Token::Keyword("true")) => Expr::Boolean(Boolean::True),
+            Some(Token::Keyword("false")) => Expr::Boolean(Boolean::False),
+            Some(Token::Delimiter('(')) => self.group_expression()?,
+            Some(Token::String(s)) => self.create_string_literal(s),
+            Some(Token::BinaryOperator('-')) => {
+                // Skip past the '-'. May cause issues down the line but idc.
+                self.advance();
+                match self.get_current_token() {
+                    Some(Token::Number(n)) => self.create_number_literal(&*format!("-{}", n)),
+                    _ => {
+                        return Err(ParserError::SyntaxError {
+                            position: self.current,
+                            message: String::new(),
+                        })
+                    }
+                }
+            }
+            Some(Token::Number(n)) => {
+                let next = self.lookahead(1);
+
+                match next {
+                    _ => self.create_number_literal(n),
+                }
+            }
+            Some(Token::Identifier(ident)) => {
+                // TODO: abstract this to a different function
+                let next = self.lookahead(1);
+
+                match next {
+                    _ => Expr::Identifier(String::from(ident)),
+                }
+            }
+            _ => Expr::NilLiteral,
+        });
 
         // Creates a BinaryExprOperator containing the operator used in the binary expression.
         // Panics if the token isn't a binary operator.
@@ -126,8 +241,9 @@ impl<'a> Parser<'a> {
                 }
             },
             _t => {
-                return Err(ParserError::UnexpectedToken {
+                return Err(ParserError::SyntaxError {
                     position: self.current,
+                    message: String::new(),
                 })
             }
         };
@@ -137,7 +253,7 @@ impl<'a> Parser<'a> {
 
         // The right hand side of the expression. Could be any expression, so the base expression
         // method is used.
-        let rhs = Box::new(self.expr()?);
+        let rhs = Box::new(self.expression()?);
 
         Ok(Expr::BinaryExpression {
             left_side: lhs,
@@ -146,43 +262,15 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// The base method for parsing any kind of expression.
-    fn expr(&mut self) -> Result<Expr, ParserError> {
-        match self.get_current_token() {
-            Some(token) => match token {
-                Token::Delimiter('(') => Ok(self.group_expr()?),
-                Token::Number(n) => {
-                    let next = self.lookahead(1);
-
-                    match next {
-                        Some(Token::BinaryOperator(op)) => Ok(self.binary_expr()?),
-                        _ => Ok(self.number_literal(n)),
-                    }
-                }
-                Token::Identifier(ident) => {
-                    // TODO: abstract this to a different function
-                    let next = self.lookahead(1);
-
-                    match next {
-                        Some(Token::BinaryOperator(op)) => Ok(self.binary_expr()?),
-                        _ => Ok(Expr::Identifier(String::from(ident))),
-                    }
-                }
-                Token::String(s) => Ok(self.string_literal(s)),
-                _ => panic!("[!] {:?}", token),
-            },
-            None => panic!("FUCK!"),
-        }
-    }
-
     /// Creates a variable declaration with a name (identifier) and a value (expression).
-    fn variable_declr(&mut self) -> Result<(), ParserError> {
+    fn variable_declaration(&mut self) -> Result<(), ParserError> {
         let name = match self.expect(Token::Identifier(""))? {
             Token::Identifier(i) => String::from(i),
             _ => {
-                return Err(ParserError::SyntaxError(
-                    "Expected an identifier after keyword `var`".to_string(),
-                ))
+                return Err(ParserError::SyntaxError {
+                    position: self.current,
+                    message: "Expected an identifier after keyword `var`".to_string(),
+                })
             }
         };
 
@@ -191,17 +279,35 @@ impl<'a> Parser<'a> {
         // Skip '='
         self.advance();
 
-        let value = self.expr()?;
+        let value = self.expression()?;
 
         self.expect(Token::Delimiter(';'))?;
 
-        self.add_node(Stmt::VariableDeclaration { name, value });
+        self.add_statement(Stmt::VariableDeclaration { name, value });
 
         Ok(())
     }
 
+    /// Attempts to convert n into a number and returns a wrapper around n.
+    fn create_number_literal(&self, n: &str) -> Expr {
+        let p = n.parse::<f64>();
+
+        match p {
+            Ok(v) => Expr::NumberLiteral(v),
+            Err(e) => {
+                panic!("[!] Error unwrapping {}: {:?}", n, e);
+            }
+        }
+    }
+
+    /// Creates a string literal wrapper which contains the string s.
+    fn create_string_literal(&self, s: &str) -> Expr {
+        println!("{}", self.current);
+        Expr::StringLiteral(String::from(s))
+    }
+
     /// Pushes `node` to `self.program`.
-    fn add_node(&mut self, node: Stmt) {
+    fn add_statement(&mut self, node: Stmt) {
         println!("[?] Adding node {:?}", node);
         self.program.push(node);
     }
@@ -239,7 +345,7 @@ impl<'a> Parser<'a> {
     /// Compares the next token to an expected token. Generates an error if the token doesn't
     /// match the expected one.
     fn expect(&'_ mut self, expected: Token) -> Result<Token<'_>, ParserError> {
-        self.current += 1;
+        self.advance();
 
         // Because the error is propagated, I can't give an error message if the expected
         // symbol is supposed to be at the end of the file.
@@ -247,10 +353,7 @@ impl<'a> Parser<'a> {
         let token = self.get_current_token();
 
         if token.is_none() {
-            return Err(ParserError::CurrentIndexOutOfBounds(format!(
-                "Index {} is out of bounds.",
-                self.current
-            )));
+            return Err(ParserError::CurrentIndexOutOfBounds(self.current));
         }
 
         // Using mem::discriminant takes the variant of the enum at face value,
@@ -264,11 +367,15 @@ impl<'a> Parser<'a> {
             Ok(token.unwrap())
         } else {
             // println!("[?] {:?} != {:?}", token, expected);
-            Err(ParserError::SyntaxError(format!(
-                "Expected {}, got {}",
-                expected,
-                token.unwrap()
-            )))
+            Err(ParserError::SyntaxError {
+                position: self.current,
+                message: format!(
+                    "Expected {}, got {}. Backtrace: {}",
+                    expected,
+                    token.unwrap(),
+                    Backtrace::capture()
+                ),
+            })
         }
     }
 }
