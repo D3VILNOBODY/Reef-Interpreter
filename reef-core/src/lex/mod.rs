@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::syntax::token::Token;
+use reef_syntax::token::Token;
 use std::str::Chars;
 use std::{collections::HashMap, path::Path};
 

@@ -1,6 +1,5 @@
 pub mod lex;
 pub mod parse;
-pub mod syntax;
 
 /// A small test suite to quickly test the functions of the lexer and
 /// parser. `test_lexer_and_parser` is a util function that creates a

@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::syntax::{ast::*, token::Token};
+use reef_syntax::{ast::*, token::Token};
 use std::{backtrace::Backtrace, iter::Peekable, mem};
 
 /// The parser is responsible for taking a vector of tokens
@@ -64,13 +64,16 @@ impl<'a> Parser<'a> {
         match self.get_current_token() {
             Some(Token::Keyword("true")) => Ok(Expr::Boolean(Boolean::True)),
             Some(Token::Keyword("false")) => Ok(Expr::Boolean(Boolean::False)),
+            Some(Token::Keyword("nil")) => Ok(Expr::NilLiteral),
             Some(Token::Delimiter('(')) => Ok(self.group_expression()?),
             Some(Token::String(s)) => Ok(self.create_string_literal(s)),
             Some(Token::BinaryOperator('-')) => {
                 // Skip past the '-'. May cause issues down the line but idc.
                 self.advance();
                 match self.get_current_token() {
-                    Some(Token::Number(n)) => Ok(self.create_number_literal(&*format!("-{}", n))),
+                    Some(Token::Number(_)) | Some(Token::Delimiter('(')) => {
+                        Ok(Expr::NegatedExpression(Box::new(self.expression()?)))
+                    }
                     _ => Err(ParserError::SyntaxError {
                         position: self.current,
                         message: String::new(),
@@ -94,7 +97,7 @@ impl<'a> Parser<'a> {
                     _ => Ok(Expr::Identifier(String::from(ident))),
                 }
             }
-            _t => panic!("[!] {:?}", _t),
+            _token => panic!("[!] {:?}", _token),
         }
     }
 

@@ -111,6 +111,7 @@ dependencies = [
  "clap",
  "clap_derive",
  "reef-core",
+ "reef-syntax",
 ]
 
 [[package]]
@@ -145,6 +146,13 @@ dependencies = [
 
 [[package]]
 name = "reef-core"
+version = "0.1.0"
+dependencies = [
+ "reef-syntax",
+]
+
+[[package]]
+name = "reef-syntax"
 version = "0.1.0"
 
 [[package]]

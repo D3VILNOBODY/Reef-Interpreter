@@ -1,4 +1,4 @@
-use reef_core::syntax::ast::*;
+use reef_syntax::ast::*;
 use std::backtrace::Backtrace;
 
 /// The evaluator is the part of the interpreter that actually

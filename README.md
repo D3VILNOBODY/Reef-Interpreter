@@ -10,5 +10,5 @@ be found in the syntax.
 
 # Running
 
-Simply clone the repository and build using cargo. The reef-core library *should*
+Simply clone the repository and build using cargo. The reef-core and reef-syntax library *should*
 be built if you just compile the project as a whole.

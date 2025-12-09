@@ -8,15 +8,16 @@
 use clap::Parser as ClapParser;
 use reef_core::lex;
 use reef_core::parse;
-use reef_core::syntax::token::{Token, TokenDisplay};
+use reef_syntax::token::{Token, TokenDisplay};
 use std::path::Path;
-use std::{env, fmt, fs, path};
+use std::{env, fmt::Display, fs, path};
 
 use crate::evaluator::Evaluator;
 
 mod evaluator;
 
-const DEBUG_FILE: &str = "REEF_LOG.log";
+const LEXER_DEBUG_FILE: &str = "reef_lexer.log";
+const PARSER_DEBUG_FILE: &str = "reef_parser.log";
 
 fn main() {
     let args = Args::parse();
@@ -25,28 +26,36 @@ fn main() {
     let mut scanner = lex::Scanner::new(&source_code);
     scanner.scan();
 
-    let mut parser = parse::Parser::new(scanner.tokens);
-    let res = parser.parse();
+    write_to_debug_file(
+        Path::new(LEXER_DEBUG_FILE),
+        format!("{:#?}", scanner.tokens),
+    );
 
-    if res.is_err() {
+    let mut parser = parse::Parser::new(scanner.tokens);
+    let parse_result = parser.parse();
+
+    if parse_result.is_err() {
         use parse::ParserError::*;
 
-        match res.unwrap_err() {
+        match parse_result.unwrap_err() {
             SyntaxError { position, message } => println!("pos: {}, {}", position, message),
+            CurrentIndexOutOfBounds(_) => {}
+
             _err => println!("{:?}", _err),
         }
     }
 
-    write_to_debug_file(format!("{:#?}", parser.program));
+    write_to_debug_file(
+        Path::new(PARSER_DEBUG_FILE),
+        format!("{:#?}", parser.program),
+    );
 
-    let mut evaluator = Evaluator::new(parser.program);
-    evaluator.evaluate_program();
+    // let mut evaluator = Evaluator::new(parser.program);
+    // evaluator.evaluate_program();
 }
 
-/*
-   Argument struct that stores data collected from command line arguments.
-   Uses clap to parse the data I need out, such as debug lvl and path.
-*/
+/// Argument struct that stores data collected from command line arguments.
+/// Uses clap to parse the data I need out, such as debug lvl and path.
 #[derive(ClapParser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -62,11 +71,11 @@ struct Args {
     debug: u8,
 }
 
-fn write_to_debug_file<T: fmt::Display>(d: T) {
-    let path = Path::new(DEBUG_FILE);
-    let res = fs::write(path, format!("{}", d));
+fn write_to_debug_file<T: Display>(path: &Path, data: T) -> Result<(), String> {
+    let res = fs::write(path, format!("{}", data));
+
     match res {
-        Ok(()) => println!("[*] Successfully wrote to {DEBUG_FILE}"),
-        Err(e) => println!("[!] An error has occurred: {e}"),
+        Ok(()) => Ok(()),
+        Err(e) => Err(format!("{e}")),
     }
 }

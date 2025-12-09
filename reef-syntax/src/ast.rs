@@ -56,6 +56,7 @@ pub enum Expr {
     StringLiteral(String),
     Identifier(String),
     GroupExpression(Box<Expr>),
+    NegatedExpression(Box<Expr>),
     Boolean(Boolean),
     NilLiteral,
 
