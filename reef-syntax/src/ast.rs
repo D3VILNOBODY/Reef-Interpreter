@@ -1,9 +1,4 @@
-#![allow(unused)]
-
-/*
-   This file stores all the necessary types needed for the parser.
-   It constructs parse nodes from a vector of tokens.
-*/
+use crate::common::*;
 
 #[derive(Debug, Clone)]
 pub enum ComparisonOperator {
@@ -12,12 +7,6 @@ pub enum ComparisonOperator {
     EqualTo,
     LessThanOrEqualTo,
     GreaterThanOrEqualTo,
-}
-
-#[derive(Debug, Clone)]
-pub enum Boolean {
-    True,
-    False,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -77,11 +66,13 @@ pub enum Expr {
     }, // func_name(...expr)
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct FunctionParameter {
     name: String,
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct FunctionArgument {
     value: Expr,

@@ -1,4 +1,5 @@
 use reef_syntax::ast::*;
+use reef_syntax::common::*;
 use std::backtrace::Backtrace;
 
 /// The evaluator is the part of the interpreter that actually
@@ -7,12 +8,6 @@ use std::backtrace::Backtrace;
 pub struct Evaluator {
     pub program: Vec<Stmt>,
     ptr: usize,
-}
-
-#[derive(Debug)]
-enum Boolean {
-    True,
-    False,
 }
 
 #[derive(Debug)]

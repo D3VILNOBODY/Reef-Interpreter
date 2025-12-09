@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use reef_syntax::{ast::*, token::Token};
+use reef_syntax::{ast::*, common::*, token::Token};
 use std::{backtrace::Backtrace, iter::Peekable, mem};
 
 /// The parser is responsible for taking a vector of tokens

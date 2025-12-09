@@ -1,6 +1,4 @@
-#![allow(unused)]
-
-use std::fmt;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Different types of tokens which can be returned by the scanner.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -18,8 +16,8 @@ pub enum Token<'a> {
     EndOfFile,
 }
 
-impl<'a> fmt::Display for Token<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'a> Display for Token<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "{:?}", self)
     }
 }
@@ -28,8 +26,8 @@ impl<'a> fmt::Display for Token<'a> {
 /// Used to print out token vectors and write them to files.
 pub struct TokenDisplay<'a>(pub &'a [Token<'a>]);
 
-impl<'a> fmt::Display for TokenDisplay<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl<'a> Display for TokenDisplay<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         writeln!(f, "[")?;
         for item in self.0 {
             writeln!(f, "\t{},", item)?;

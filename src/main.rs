@@ -28,7 +28,7 @@ fn main() {
 
     write_to_debug_file(
         Path::new(LEXER_DEBUG_FILE),
-        format!("{:#?}", scanner.tokens),
+        format!("{}", TokenDisplay(&scanner.tokens)),
     );
 
     let mut parser = parse::Parser::new(scanner.tokens);
