@@ -132,6 +132,7 @@ impl<'a> Parser<'a> {
             let expr = match token {
                 Token::String(_)
                 | Token::Number(_)
+                | Token::Identifier(_)
                 | Token::Delimiter('(')
                 | Token::BinaryOperator('-')
                 | Token::Keyword("true")
@@ -303,12 +304,12 @@ impl<'a> Parser<'a> {
         match p {
             Ok(v) => Expr::NumberLiteral(v),
             Err(e) => {
-                panic!("[!] Error unwrapping {}: {:?}", n, e);
+                panic!("Error unwrapping {}: {:?}", n, e);
             }
         }
     }
 
-    /// Creates a string literal wrapper which contains the string s.
+    /// Creates a string literal wrapper which contains the string `s`.
     fn create_string_literal(&self, s: &str) -> Expr {
         Expr::StringLiteral(String::from(s))
     }
@@ -316,7 +317,7 @@ impl<'a> Parser<'a> {
     /// Pushes `node` to `self.program`.
     fn add_statement(&mut self, node: Stmt) {
         if self.debug >= 1 {
-            println!("[?] Adding node {:?}", node);
+            println!("[log] Adding statement {:?}...", node);
         }
 
         self.program.push(node);
@@ -325,10 +326,23 @@ impl<'a> Parser<'a> {
     /// Gets the token at `current + distance`.
     fn lookahead(&self, distance: usize) -> Option<Token<'_>> {
         if self.current + distance >= self.tokens.len() {
+            if self.debug >= 1 {
+                println!(
+                    "[log] Looked ahead {} from {} and found no token.",
+                    distance, self.current
+                );
+            }
             return None;
         }
 
         let token = self.tokens[self.current + distance];
+
+        if self.debug >= 1 {
+            println!(
+                "[log] Looked ahead {} from {} and current token is {:?}",
+                distance, self.current, token
+            );
+        }
 
         Some(token)
     }
@@ -336,11 +350,6 @@ impl<'a> Parser<'a> {
     /// Returns the token at index `current`.
     fn get_current_token(&self) -> Option<Token<'_>> {
         if self.current >= self.tokens.len() {
-            // return Err(ParserError::CurrentIndexOutOfBounds(format!(
-            //     "Index {} is out of bounds.",
-            //     self.current
-            // )));
-
             return None;
         }
 
@@ -350,6 +359,14 @@ impl<'a> Parser<'a> {
     /// Increments the `current` pointer and returns the next token.
     fn advance(&mut self) {
         self.current += 1;
+
+        if self.debug >= 1 {
+            println!(
+                "[log] Advanced. Index is {} and current token is {:?}",
+                self.current,
+                self.get_current_token()
+            );
+        }
     }
 
     /// Compares the next token to an expected token. Generates an error if the token doesn't
@@ -387,7 +404,7 @@ impl<'a> Parser<'a> {
 
         // Using mem::discriminant takes the variant of the enum at face value,
         // ignoring the value stored inside.
-        if token.unwrap() == expected
+        if token.is_some() && token.unwrap() == expected
             || mem::discriminant(&expected) == mem::discriminant(&Token::Identifier(""))
             || mem::discriminant(&expected) == mem::discriminant(&Token::BinaryOperator(' '))
             || mem::discriminant(&expected) == mem::discriminant(&Token::ComparisonOperator(' '))
@@ -401,7 +418,7 @@ impl<'a> Parser<'a> {
                 message: format!(
                     "Expected {}, got {}. Backtrace: {}",
                     expected,
-                    token.unwrap(),
+                    token.unwrap_or(Token::EndOfFile),
                     Backtrace::capture()
                 ),
             })

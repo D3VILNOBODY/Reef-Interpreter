@@ -55,8 +55,8 @@ fn main() {
         format!("{:#?}", parser.program),
     );
 
-    // let mut evaluator = Evaluator::new(parser.program);
-    // evaluator.evaluate_program();
+    let mut evaluator = Evaluator::new(parser.program, args.debug);
+    evaluator.evaluate_program();
 }
 
 /// Argument struct that stores data collected from command line arguments.

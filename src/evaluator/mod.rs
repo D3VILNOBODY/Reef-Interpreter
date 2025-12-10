@@ -1,43 +1,56 @@
 use reef_syntax::ast::*;
 use reef_syntax::common::*;
 use std::backtrace::Backtrace;
+use std::collections::HashMap;
+
+mod types;
+use types::*;
 
 /// The evaluator is the part of the interpreter that actually
 /// runs (evaluates) the code. It takes an input of statements
 /// and evaluates each thing as it reads it.
+#[derive(Debug)]
 pub struct Evaluator {
     pub program: Vec<Stmt>,
+    variables: HashMap<String, RuntimeType>,
     ptr: usize,
-}
-
-#[derive(Debug)]
-enum RuntimeType {
-    Number(f64),
-    String(String),
-    Boolean(Boolean),
+    debug: u8,
 }
 
 impl Evaluator {
-    pub fn new(program: Vec<Stmt>) -> Self {
-        Self { program, ptr: 0 }
+    pub fn new(program: Vec<Stmt>, debug: u8) -> Self {
+        Self {
+            program,
+            variables: HashMap::new(),
+            debug,
+            ptr: 0,
+        }
     }
 
     pub fn evaluate_program(&mut self) {
         while self.ptr < self.program.len() {
             match self.get_current_statement() {
                 Some(Stmt::ExpressionStatement(expr)) => self.evaluate_expression_statement(expr),
+                Some(Stmt::LogStatement(args)) => self.evaluate_log_statement(args),
+                Some(Stmt::VariableDeclaration { name, value }) => {
+                    self.evaluate_variable_declaration(name, value)
+                }
                 Some(_stmt) => {
                     panic!("Unhandled statement {:?}", _stmt);
                 }
                 None => break,
-            }
+            };
         }
     }
 
-    fn evaluate_expression_statement(&mut self, expr: Expr) {
-        let x = self.evaluate_expression(expr);
-        println!("{}", Backtrace::capture());
-        println!("///////////////////////////////////////////////////");
+    pub fn dbg_print_state(&self) {
+        dbg!(self);
+    }
+
+    fn evaluate_expression_statement(&mut self, expr: Expr) -> RuntimeType {
+        self.evaluate_expression(expr);
+
+        RuntimeType::None
     }
 
     fn evaluate_expression(&mut self, expr: Expr) -> RuntimeType {
@@ -47,17 +60,50 @@ impl Evaluator {
                 right_side,
                 operator,
             } => self.evaluate_binary_expression(left_side, right_side, operator),
+            Expr::UnaryExpression(operation, expression) => {
+                let ret = self.evaluate_expression(*expression);
+
+                match ret {
+                    RuntimeType::Number(num) => RuntimeType::Number(-num),
+                    _ => panic!("Cant perform a unary operation on {:?}", ret),
+                }
+            }
+            Expr::GroupExpression(expression) => self.evaluate_expression(*expression),
+            Expr::Boolean(boolean) => RuntimeType::Boolean(boolean),
             Expr::NumberLiteral(n) => RuntimeType::Number(n),
             Expr::StringLiteral(s) => RuntimeType::String(s),
-            _ => panic!("Can only do binary expressions rn sorry bud"),
+            Expr::Identifier(ident) => self.get_variable(ident),
+            _ => panic!("fn evaluate_expression: unhandled expression {:?}", expr),
         }
+    }
+
+    fn evaluate_variable_declaration(&mut self, name: String, value: Expr) -> RuntimeType {
+        let value = self.evaluate_expression(value);
+
+        self.set_variable(name, value);
+
+        self.advance();
+
+        RuntimeType::None
+    }
+
+    fn evaluate_log_statement(&mut self, args: Vec<Expr>) -> RuntimeType {
+        for arg in args {
+            let expr = self.evaluate_expression(arg);
+
+            println!("{}", expr);
+        }
+
+        self.advance();
+
+        RuntimeType::None
     }
 
     fn evaluate_binary_expression(
         &mut self,
         lhs: Box<Expr>,
         rhs: Box<Expr>,
-        op: BinaryExprOperator,
+        operator: BinaryExprOperator,
     ) -> RuntimeType {
         let lhs = self.evaluate_expression(*lhs);
         let rhs = self.evaluate_expression(*rhs);
@@ -77,7 +123,7 @@ impl Evaluator {
             _ => panic!("CANT DO A BINARY OPERATION ON ANYTHING BUT A NUMBER"),
         };
 
-        match op {
+        match operator {
             BinaryExprOperator::Plus => final_num = lhs_n + rhs_n,
             BinaryExprOperator::Minus => final_num = lhs_n - rhs_n,
             BinaryExprOperator::Multiply => final_num = lhs_n * rhs_n,
@@ -85,9 +131,29 @@ impl Evaluator {
             BinaryExprOperator::Modulus => final_num = lhs_n % rhs_n,
         };
 
-        self.advance();
-
         RuntimeType::Number(final_num)
+    }
+
+    fn get_variable(&self, name: String) -> RuntimeType {
+        if self.debug >= 1 {
+            println!("[log] Attempting to access variable named {name}...")
+        }
+
+        let var = self.variables.get(&name);
+
+        if var.is_none() {
+            panic!("Attempt to access undefined variable {name}");
+        }
+
+        var.unwrap().clone()
+    }
+
+    fn set_variable(&mut self, name: String, value: RuntimeType) {
+        if self.debug >= 1 {
+            println!("[log] Creating variable {name} with value {value}...")
+        }
+
+        self.variables.insert(name, value);
     }
 
     fn get_current_statement(&self) -> Option<Stmt> {
