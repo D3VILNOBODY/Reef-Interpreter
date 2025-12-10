@@ -10,10 +10,10 @@ mod tests {
     use super::*;
 
     fn test_lexer_and_parser(source_code: &str) {
-        let mut l = lex::Scanner::new(source_code);
+        let mut l = lex::Scanner::new(source_code, 1);
         l.scan();
 
-        let mut p = parse::Parser::new(l.tokens);
+        let mut p = parse::Parser::new(l.tokens, 1);
         let res = p.parse();
 
         if res.is_err() {

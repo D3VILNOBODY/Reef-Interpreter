@@ -5,6 +5,7 @@ Identifier          ::= Alphabet | '_' { Alphabet | Digit | '_' }
 Boolean             ::= 'true' | 'false'
 Delimiter           ::= '(' | ')' | '[' | ']' | '{' | '}'
 Operator            ::= '=' | '+' | '-' | '/' | '*'
+UnaryOperator       ::= '-'
 
 FunctionName        ::= Identifier
 FunctionParameters  ::= '(' [ Identifier { ',' Identifier } ] ')'
@@ -14,7 +15,7 @@ StructFields        ::= '{' { Identifier { ',' Identifier } } '}'
 
 Expression          ::= AdditiveExpr | MultiplicativeExpr | GroupExpr
                         | Functioncall | ComparisonExpr | ConditionalExpr
-                        | StructInit | NumberLiteral | StringLiteral
+                        | StructInit | NumberLiteral | StringLiteral | UnaryExpr
 NumberLiteral       ::= Number
 StringLiteral       ::= '"' { Any } '"'
 AdditiveExpr        ::= Expression '+' | '-' Expression
@@ -24,6 +25,7 @@ StructInit          ::= StructName '{' { Identifier ':' Expression } '}'
 GroupExpr           ::= '(' { Expression } ')'
 ComparisonExpr      ::= Expression '>' | '>=' | '<' | '<=' | '==' Expression
 ConditionalExpr     ::= [ 'not' ] ComparisonExpr | Boolean { 'or' | 'and' [ 'not' ] ComparisonExpr }
+UnaryExpr           ::= UnaryOperator NumberLiteral | GroupExpr | FunctionCall
 
 Statement           ::= VariableDeclaration | FunctionDeclaration | Log
                         | Loop | StructDeclaration | Return

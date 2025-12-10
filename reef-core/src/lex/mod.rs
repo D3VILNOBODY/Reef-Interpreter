@@ -20,7 +20,7 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     /// Construct a new Scanner, taking the text to scan as the only argument.
-    pub fn new(text: &'a str) -> Self {
+    pub fn new(text: &'a str, debug: u8) -> Self {
         let mut keyword_map: HashMap<&str, &str> = HashMap::new();
 
         // Populate the keyword list with the language keywords.
@@ -52,7 +52,7 @@ impl<'a> Scanner<'a> {
             current: 0,
             line: 1,
             keywords: keyword_map,
-            debug: 0,
+            debug,
         }
     }
 

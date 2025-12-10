@@ -23,7 +23,7 @@ fn main() {
     let args = Args::parse();
     let source_code = fs::read_to_string(&args.path).expect("Failed to read file");
 
-    let mut scanner = lex::Scanner::new(&source_code);
+    let mut scanner = lex::Scanner::new(&source_code, args.debug);
     scanner.scan();
 
     write_to_debug_file(
@@ -31,17 +31,22 @@ fn main() {
         format!("{}", TokenDisplay(&scanner.tokens)),
     );
 
-    let mut parser = parse::Parser::new(scanner.tokens);
+    let mut parser = parse::Parser::new(scanner.tokens, args.debug);
     let parse_result = parser.parse();
 
     if parse_result.is_err() {
         use parse::ParserError::*;
 
         match parse_result.unwrap_err() {
-            SyntaxError { position, message } => println!("pos: {}, {}", position, message),
-            CurrentIndexOutOfBounds(_) => {}
-
-            _err => println!("{:?}", _err),
+            SyntaxError { position, message } => {
+                println!("Syntax error: at {}, {}", position, message)
+            }
+            CurrentIndexOutOfBounds(position) => {
+                println!("Attempt to index out of bounds. Index at {}", position)
+            }
+            UnknownToken { position } => {
+                println!("Encountered an unknown token at position {}", position)
+            }
         }
     }
 

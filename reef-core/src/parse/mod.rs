@@ -11,6 +11,7 @@ pub struct Parser<'a> {
     pub program: Vec<Stmt>,
     tokens: Vec<Token<'a>>,
     current: usize,
+    debug: u8,
 }
 
 #[derive(Debug)]
@@ -23,9 +24,10 @@ pub enum ParserError {
 impl<'a> Parser<'a> {
     /// Constructs a new parser, taking a vector of tokens
     /// produced by the scanner.
-    pub fn new(tokens: Vec<Token<'a>>) -> Self {
+    pub fn new(tokens: Vec<Token<'a>>, debug: u8) -> Self {
         Self {
             tokens,
+            debug,
             current: 0,
             program: vec![],
         }
@@ -70,10 +72,11 @@ impl<'a> Parser<'a> {
             Some(Token::BinaryOperator('-')) => {
                 // Skip past the '-'. May cause issues down the line but idc.
                 self.advance();
+
                 match self.get_current_token() {
-                    Some(Token::Number(_)) | Some(Token::Delimiter('(')) => {
-                        Ok(Expr::NegatedExpression(Box::new(self.expression()?)))
-                    }
+                    Some(Token::Number(_)) | Some(Token::Delimiter('(')) => Ok(
+                        Expr::UnaryExpression(UnaryOperation::Minus, Box::new(self.expression()?)),
+                    ),
                     _ => Err(ParserError::SyntaxError {
                         position: self.current,
                         message: String::new(),
@@ -109,8 +112,8 @@ impl<'a> Parser<'a> {
         // Skip past the "log" keyword.
         self.advance();
 
-        // let expressions = self.parse_call_site_arguments()?;
-        let expressions = vec![self.expression()?];
+        let expressions = self.parse_call_site_arguments()?;
+        // let expressions = vec![self.expression()?];
 
         self.expect(Token::Delimiter(';'))?;
 
@@ -120,14 +123,17 @@ impl<'a> Parser<'a> {
     }
 
     /// Collects a list of arguments (expressions) separated by commas.
-    /// TODO: fix ts?? it doesnt work
     fn parse_call_site_arguments(&mut self) -> Result<Vec<Expr>, ParserError> {
         let mut collected: Vec<Expr> = vec![];
 
+        // Im not sure why this doesnt work if i replace it all with self.expression(),
+        // so im just going to leave it and pray it keeps working!
         while let Some(token) = self.get_current_token() {
             let expr = match token {
                 Token::String(_)
                 | Token::Number(_)
+                | Token::Delimiter('(')
+                | Token::BinaryOperator('-')
                 | Token::Keyword("true")
                 | Token::Keyword("false") => self.expression()?,
 
@@ -139,7 +145,6 @@ impl<'a> Parser<'a> {
 
             match next {
                 Some(Token::Delimiter(';')) => {
-                    self.advance();
                     break;
                 }
                 Some(Token::Delimiter(',')) => {
@@ -305,13 +310,15 @@ impl<'a> Parser<'a> {
 
     /// Creates a string literal wrapper which contains the string s.
     fn create_string_literal(&self, s: &str) -> Expr {
-        println!("{}", self.current);
         Expr::StringLiteral(String::from(s))
     }
 
     /// Pushes `node` to `self.program`.
     fn add_statement(&mut self, node: Stmt) {
-        println!("[?] Adding node {:?}", node);
+        if self.debug >= 1 {
+            println!("[?] Adding node {:?}", node);
+        }
+
         self.program.push(node);
     }
 
@@ -350,13 +357,32 @@ impl<'a> Parser<'a> {
     fn expect(&'_ mut self, expected: Token) -> Result<Token<'_>, ParserError> {
         self.advance();
 
-        // Because the error is propagated, I can't give an error message if the expected
-        // symbol is supposed to be at the end of the file.
-        // TODO: do something about this!
         let token = self.get_current_token();
 
+        // At the end of the file.
         if token.is_none() {
-            return Err(ParserError::CurrentIndexOutOfBounds(self.current));
+            use ParserError::*;
+            use Token::*;
+
+            match expected {
+                Delimiter(';') => SyntaxError {
+                    position: self.current,
+                    message: format!("Expected semicolon"),
+                },
+                Number(_) => SyntaxError {
+                    position: self.current,
+                    message: format!("Expected Number"),
+                },
+                String(_) => SyntaxError {
+                    position: self.current,
+                    message: format!("Expected String"),
+                },
+                BinaryOperator(op) => SyntaxError {
+                    position: self.current,
+                    message: format!("Expected {}", op),
+                },
+                _ => CurrentIndexOutOfBounds(self.current),
+            };
         }
 
         // Using mem::discriminant takes the variant of the enum at face value,
