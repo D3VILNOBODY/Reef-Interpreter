@@ -77,6 +77,8 @@ impl Evaluator {
         }
     }
 
+    /// Runs a variable declaration statement and adds the variable to the global
+    /// `self.variables` field.
     fn evaluate_variable_declaration(&mut self, name: String, value: Expr) -> RuntimeType {
         let value = self.evaluate_expression(value);
 
@@ -87,18 +89,33 @@ impl Evaluator {
         RuntimeType::None
     }
 
+    /// Runs a log statement, printing all of its arguments one after another in
+    /// one string.
     fn evaluate_log_statement(&mut self, args: Vec<Expr>) -> RuntimeType {
-        for arg in args {
-            let expr = self.evaluate_expression(arg);
+        let mut val_to_print = String::new();
 
-            println!("{}", expr);
+        let mut ptr = 0;
+        while ptr < args.len() {
+            let expr = self.evaluate_expression(args.get(ptr).unwrap().clone());
+
+            if ptr == args.len() - 1 {
+                val_to_print.push_str(&format!("{}", expr));
+            } else {
+                val_to_print.push_str(&format!("{}, ", expr));
+            }
+
+            ptr += 1;
         }
+
+        println!("{}", val_to_print);
 
         self.advance();
 
         RuntimeType::None
     }
 
+    /// Evaluates the value of a binary expression. For example 1 + 2 will
+    /// evaluate to the runtime value of Number(3).
     fn evaluate_binary_expression(
         &mut self,
         lhs: Box<Expr>,
@@ -134,6 +151,8 @@ impl Evaluator {
         RuntimeType::Number(final_num)
     }
 
+    /// Gets a variable from the global `self.variables` field. Panics if the
+    /// variable doesn't exist.
     fn get_variable(&self, name: String) -> RuntimeType {
         if self.debug >= 1 {
             println!("[log] Attempting to access variable named {name}...")
@@ -148,6 +167,7 @@ impl Evaluator {
         var.unwrap().clone()
     }
 
+    /// Sets a variable in the global `self.variables` field.
     fn set_variable(&mut self, name: String, value: RuntimeType) {
         if self.debug >= 1 {
             println!("[log] Creating variable {name} with value {value}...")

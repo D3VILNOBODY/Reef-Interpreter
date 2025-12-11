@@ -5,7 +5,7 @@ Identifier          ::= Alphabet | '_' { Alphabet | Digit | '_' }
 Boolean             ::= 'true' | 'false'
 Delimiter           ::= '(' | ')' | '[' | ']' | '{' | '}'
 Operator            ::= '=' | '+' | '-' | '/' | '*'
-UnaryOperator       ::= '-'
+UnaryOperator       ::= '-' | '+'
 
 FunctionName        ::= Identifier
 FunctionParameters  ::= '(' [ Identifier { ',' Identifier } ] ')'

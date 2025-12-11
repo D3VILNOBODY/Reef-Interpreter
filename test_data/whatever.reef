@@ -1,8 +1,5 @@
 var x = 10;
-var y = 50.7;
-var z = -90;
+var y = 5.5;
 
-log x + y * z;
-log "the fitnessgram pacer test is a multistage aerobic capacity test that progressively gets more difficult as the test continues";
-log true, false;
-log x, y, z;
+log x * y + (x * 2), "bye";
+log "hi";

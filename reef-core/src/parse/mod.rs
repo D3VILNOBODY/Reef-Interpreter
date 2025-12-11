@@ -74,12 +74,15 @@ impl<'a> Parser<'a> {
                 self.advance();
 
                 match self.get_current_token() {
-                    Some(Token::Number(_)) | Some(Token::Delimiter('(')) => Ok(
-                        Expr::UnaryExpression(UnaryOperation::Minus, Box::new(self.expression()?)),
-                    ),
+                    Some(Token::Number(_))
+                    | Some(Token::Identifier(_))
+                    | Some(Token::Delimiter('(')) => Ok(Expr::UnaryExpression(
+                        UnaryOperation::Minus,
+                        Box::new(self.expression()?),
+                    )),
                     _ => Err(ParserError::SyntaxError {
                         position: self.current,
-                        message: String::new(),
+                        message: format!("Wrong kind of argument after a unary operater bro!"),
                     }),
                 }
             }
