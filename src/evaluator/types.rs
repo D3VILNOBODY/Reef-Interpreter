@@ -1,5 +1,5 @@
 use reef_syntax::common::*;
-use std::fmt::{write, Display, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug, Clone)]
 pub enum RuntimeType {

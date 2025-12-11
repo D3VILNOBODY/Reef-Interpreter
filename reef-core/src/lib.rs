@@ -14,7 +14,7 @@ mod tests {
         l.scan();
 
         let mut p = parse::Parser::new(l.tokens, 1);
-        let res = p.parse();
+        let res = p.parse_all();
 
         if res.is_err() {
             println!("=-=- Source Code -=-=");

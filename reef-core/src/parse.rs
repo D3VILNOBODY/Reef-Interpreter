@@ -1,7 +1,5 @@
-#![allow(unused)]
-
 use reef_syntax::{ast::*, common::*, token::Token};
-use std::{backtrace::Backtrace, iter::Peekable, mem};
+use std::{backtrace::Backtrace, mem};
 
 /// The parser is responsible for taking a vector of tokens
 /// and producing a tree-like representation of the program
@@ -34,29 +32,36 @@ impl<'a> Parser<'a> {
     }
 
     /// Top level function for parsing every token.
-    pub fn parse(&mut self) -> Result<(), ParserError> {
+    pub fn parse_all(&mut self) -> Result<(), ParserError> {
         while self.current < self.tokens.len() {
-            match self.get_current_token() {
-                // Statements
-                Some(Token::Keyword("var")) => self.variable_declaration(),
-                Some(Token::Keyword("log")) => self.log_statement(),
-
-                // Expression statements
-                Some(Token::Keyword("true"))
-                | Some(Token::Keyword("false"))
-                | Some(Token::Identifier(_))
-                | Some(Token::String(_))
-                | Some(Token::Number(_))
-                | Some(Token::BinaryOperator('-'))
-                | Some(Token::Delimiter('(')) => self.expression_statement(),
-
-                Some(Token::Delimiter(';')) => Ok(self.advance()),
-
-                _ => Err(ParserError::UnknownToken {
-                    position: self.current,
-                }),
-            }?;
+            self.next_statement()?;
         }
+
+        Ok(())
+    }
+
+    fn next_statement(&mut self) -> Result<(), ParserError> {
+        match self.get_current_token() {
+            // Statements
+            Some(Token::Keyword("var")) => self.variable_declaration(),
+            Some(Token::Keyword("log")) => self.log_statement(),
+            Some(Token::Delimiter('{')) => self.block_statement(),
+
+            // Expression statements
+            Some(Token::Keyword("true"))
+            | Some(Token::Keyword("false"))
+            | Some(Token::Identifier(_))
+            | Some(Token::String(_))
+            | Some(Token::Number(_))
+            | Some(Token::BinaryOperator('-'))
+            | Some(Token::Delimiter('(')) => self.expression_statement(),
+
+            Some(Token::Delimiter(';')) => Ok(self.advance()),
+
+            _ => Err(ParserError::UnknownToken {
+                position: self.current,
+            }),
+        }?;
 
         Ok(())
     }
@@ -90,7 +95,7 @@ impl<'a> Parser<'a> {
                 let next = self.lookahead(1);
 
                 match next {
-                    Some(Token::BinaryOperator(op)) => Ok(self.binary_expression()?),
+                    Some(Token::BinaryOperator(_)) => Ok(self.binary_expression()?),
                     _ => Ok(self.create_number_literal(n)),
                 }
             }
@@ -99,7 +104,7 @@ impl<'a> Parser<'a> {
                 let next = self.lookahead(1);
 
                 match next {
-                    Some(Token::BinaryOperator(op)) => Ok(self.binary_expression()?),
+                    Some(Token::BinaryOperator(_)) => Ok(self.binary_expression()?),
                     _ => Ok(Expr::Identifier(String::from(ident))),
                 }
             }
@@ -125,6 +130,12 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn block_statement(&mut self) -> Result<(), ParserError> {
+        self.advance();
+
+        Ok(())
+    }
+
     /// Collects a list of arguments (expressions) separated by commas.
     fn parse_call_site_arguments(&mut self) -> Result<Vec<Expr>, ParserError> {
         let mut collected: Vec<Expr> = vec![];
@@ -141,7 +152,8 @@ impl<'a> Parser<'a> {
                 | Token::Keyword("true")
                 | Token::Keyword("false") => self.expression()?,
 
-                _ | Token::Delimiter(')') => break,
+                Token::Delimiter(')') => break,
+                _ => break,
             };
             collected.push(expr);
 

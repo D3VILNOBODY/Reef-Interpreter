@@ -1,6 +1,4 @@
 use reef_syntax::ast::*;
-use reef_syntax::common::*;
-use std::backtrace::Backtrace;
 use std::collections::HashMap;
 
 mod types;
@@ -43,10 +41,6 @@ impl Evaluator {
         }
     }
 
-    pub fn dbg_print_state(&self) {
-        dbg!(self);
-    }
-
     fn evaluate_expression_statement(&mut self, expr: Expr) -> RuntimeType {
         self.evaluate_expression(expr);
 
@@ -60,7 +54,7 @@ impl Evaluator {
                 right_side,
                 operator,
             } => self.evaluate_binary_expression(left_side, right_side, operator),
-            Expr::UnaryExpression(operation, expression) => {
+            Expr::UnaryExpression(_operation, expression) => {
                 let ret = self.evaluate_expression(*expression);
 
                 match ret {
@@ -126,9 +120,9 @@ impl Evaluator {
         let rhs = self.evaluate_expression(*rhs);
 
         // Undefined because the actual values are set later.
-        let mut lhs_n: f64;
-        let mut rhs_n: f64;
-        let mut final_num: f64;
+        let lhs_n: f64;
+        let rhs_n: f64;
+        let final_num: f64;
 
         match lhs {
             RuntimeType::Number(n) => lhs_n = n,

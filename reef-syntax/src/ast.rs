@@ -25,10 +25,10 @@ pub enum BinaryExprOperator {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    CompoundStatement(Vec<Stmt>), // { ...stmt }
-    ExpressionStatement(Expr),    // any expr;
-    LogStatement(Vec<Expr>),      // log ...expr;
-    ReturnStatement(Expr),        // return expr;
+    BlockStatement(Vec<Stmt>), // { ...stmt }
+    ExpressionStatement(Expr), // any expr;
+    LogStatement(Vec<Expr>),   // log ...expr;
+    ReturnStatement(Expr),     // return expr;
     ForLoop {
         condition: Expr,
         body: Box<Stmt>,

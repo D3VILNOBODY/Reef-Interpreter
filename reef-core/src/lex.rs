@@ -1,8 +1,5 @@
-#![allow(unused)]
-
 use reef_syntax::token::Token;
-use std::str::Chars;
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
 
 /// Scanner is responsible for converting text input into a stream of tokens
 /// which represent the smallest components of a program. It is a struct so
@@ -64,7 +61,6 @@ impl<'a> Scanner<'a> {
     /// Scan the input text and break it down into the smallest components.
     /// Token definitions can be found in ./lib.rs
     pub fn scan(&mut self) {
-        let mut current_char: Option<&u8>;
         while self.current < self.text.len() {
             self.next_token();
         }
@@ -111,11 +107,6 @@ impl<'a> Scanner<'a> {
     /// Check an identifier against the built-in hashmap of keywords, and returns true if it matches a keyword, else returns false.
     fn is_keyword(&self, ident: &str) -> bool {
         self.keywords.contains_key(ident)
-    }
-
-    /// Peek one character ahead.
-    fn peek(&self) -> Option<char> {
-        self.text.chars().nth(self.current + 1)
     }
 
     fn get_current_char(&self) -> Option<char> {
@@ -165,7 +156,7 @@ impl<'a> Scanner<'a> {
     /// Save the contents of a comment as a string for potential use in the parser.
     fn scan_comment(&mut self) {
         // Capture both hyphens at the start
-        let start = self.current - 1;
+        // let start = self.current - 1;
 
         while let Some(c) = self.get_current_char() {
             match c {
