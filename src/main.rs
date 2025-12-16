@@ -62,7 +62,7 @@ fn repl(args: &Args) {
 fn evaluate_file(args: &Args, path: path::PathBuf) {
     let source_code = fs::read_to_string(path).expect("Failed to read source code from file.");
 
-    run(&source_code, args.debug)
+    run(&source_code, args.debug);
 }
 
 fn run(source_code: &str, debug: u8) {
@@ -78,7 +78,7 @@ fn run(source_code: &str, debug: u8) {
             path::Path::new(LEXER_DEBUG_FILE),
             format!("{}", TokenDisplay(&scanner.tokens)),
         );
-        println!("Wrote parser output to {}", LEXER_DEBUG_FILE)
+        println!("[log] Wrote scanner output to {}", LEXER_DEBUG_FILE)
     }
 
     parser = parse::Parser::new(scanner.tokens, debug);
@@ -90,7 +90,7 @@ fn run(source_code: &str, debug: u8) {
                     path::Path::new(PARSER_DEBUG_FILE),
                     format!("{:?}", parser.program),
                 );
-                println!("Wrote parser output to {}", PARSER_DEBUG_FILE)
+                println!("[log] Wrote parser output to {}", PARSER_DEBUG_FILE)
             }
         }
         Err(err) => match err {
@@ -105,6 +105,8 @@ fn run(source_code: &str, debug: u8) {
             }
         },
     };
+
+    // dbg!(&parser.program);
 
     evaluator = evaluator::Evaluator::new(parser.program, debug);
     evaluator.evaluate_program();

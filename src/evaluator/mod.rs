@@ -1,3 +1,4 @@
+use colored::Colorize;
 use reef_syntax::ast::*;
 use std::collections::HashMap;
 
@@ -36,13 +37,20 @@ impl Evaluator {
                 Some(_stmt) => {
                     panic!("Unhandled statement {:?}", _stmt);
                 }
-                None => break,
+                None => {
+                    println!("Done");
+                    break;
+                }
             };
         }
     }
 
     fn evaluate_expression_statement(&mut self, expr: Expr) -> RuntimeType {
-        self.evaluate_expression(expr);
+        let v = self.evaluate_expression(expr);
+
+        self.log("expr_stmt", v);
+
+        self.advance();
 
         RuntimeType::None
     }
@@ -168,6 +176,10 @@ impl Evaluator {
         }
 
         self.variables.insert(name, value);
+    }
+
+    fn log(&self, source: &str, value: RuntimeType) {
+        println!("{}", format!("[{}] {}", source, value).bright_green());
     }
 
     fn get_current_statement(&self) -> Option<Stmt> {

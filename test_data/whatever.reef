@@ -1,5 +1,3 @@
 var x = 10;
-var y = 5.5;
-
-log x * y + (x * 2), "bye";
-log "hi";
+log 100, x, x * 90;
+"hello"; -- this is a comment

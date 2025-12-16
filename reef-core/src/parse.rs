@@ -34,18 +34,25 @@ impl<'a> Parser<'a> {
     /// Top level function for parsing every token.
     pub fn parse_all(&mut self) -> Result<(), ParserError> {
         while self.current < self.tokens.len() {
-            self.next_statement()?;
+            let n = self.next_statement()?;
+
+            self.add_statement(n.unwrap());
+
+            match self.get_current_token() {
+                Some(Token::Delimiter(';')) => self.advance(),
+                _ => continue,
+            }
         }
 
         Ok(())
     }
 
-    fn next_statement(&mut self) -> Result<(), ParserError> {
+    fn next_statement(&mut self) -> Result<Option<Stmt>, ParserError> {
         match self.get_current_token() {
             // Statements
-            Some(Token::Keyword("var")) => self.variable_declaration(),
-            Some(Token::Keyword("log")) => self.log_statement(),
-            Some(Token::Delimiter('{')) => self.block_statement(),
+            Some(Token::Keyword("var")) => Ok(Some(self.variable_declaration()?)),
+            Some(Token::Keyword("log")) => Ok(Some(self.log_statement()?)),
+            Some(Token::Delimiter('{')) => Ok(Some(self.block_statement()?)),
 
             // Expression statements
             Some(Token::Keyword("true"))
@@ -54,16 +61,17 @@ impl<'a> Parser<'a> {
             | Some(Token::String(_))
             | Some(Token::Number(_))
             | Some(Token::BinaryOperator('-'))
-            | Some(Token::Delimiter('(')) => self.expression_statement(),
+            | Some(Token::Delimiter('(')) => Ok(Some(self.expression_statement()?)),
 
-            Some(Token::Delimiter(';')) => Ok(self.advance()),
+            Some(Token::Delimiter(';')) => {
+                self.advance();
+                Ok(None)
+            }
 
             _ => Err(ParserError::UnknownToken {
                 position: self.current,
             }),
-        }?;
-
-        Ok(())
+        }
     }
 
     /// The base method for parsing any kind of expression.
@@ -112,7 +120,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn log_statement(&mut self) -> Result<(), ParserError> {
+    fn log_statement(&mut self) -> Result<Stmt, ParserError> {
         // log expr1, expr2, expr3;
         // log expr1;
         // log;
@@ -125,15 +133,24 @@ impl<'a> Parser<'a> {
 
         self.expect(Token::Delimiter(';'))?;
 
-        self.add_statement(Stmt::LogStatement(expressions));
-
-        Ok(())
+        Ok(Stmt::LogStatement(expressions))
     }
 
-    fn block_statement(&mut self) -> Result<(), ParserError> {
+    fn block_statement(&mut self) -> Result<Stmt, ParserError> {
+        // Skip the '{'.
         self.advance();
 
-        Ok(())
+        let mut statements: Vec<Stmt> = vec![];
+
+        while self.current < self.tokens.len()
+            && self.get_current_token() != Some(Token::Delimiter('}'))
+            && self.get_current_token() != None
+        {
+            let s = self.next_statement()?;
+            statements.push(s.expect("hi"));
+        }
+
+        Ok(Stmt::BlockStatement(statements))
     }
 
     /// Collects a list of arguments (expressions) separated by commas.
@@ -152,7 +169,6 @@ impl<'a> Parser<'a> {
                 | Token::Keyword("true")
                 | Token::Keyword("false") => self.expression()?,
 
-                Token::Delimiter(')') => break,
                 _ => break,
             };
             collected.push(expr);
@@ -160,23 +176,17 @@ impl<'a> Parser<'a> {
             let next = self.lookahead(1);
 
             match next {
-                Some(Token::Delimiter(';')) => {
-                    break;
-                }
                 Some(Token::Delimiter(',')) => {
                     // Really janky but the first advance skips the expression,
                     // the second one skips the comma. Im a lil stupid so just
                     // let it slide.
                     self.advance();
+                    // dbg!(self.get_current_token());
                     self.advance();
+                    // dbg!(self.get_current_token());
                     continue;
                 }
-                _ => {
-                    return Err(ParserError::SyntaxError {
-                        position: self.current,
-                        message: "Syntax error.".to_string(),
-                    })
-                }
+                _ => break,
             }
         }
 
@@ -185,13 +195,11 @@ impl<'a> Parser<'a> {
 
     /// Generates an expression statement. An expression statement is simply an expression
     /// but as a statement. For example, `10 + 5;` is an expression statement.
-    fn expression_statement(&mut self) -> Result<(), ParserError> {
+    fn expression_statement(&mut self) -> Result<Stmt, ParserError> {
         let expr = self.expression()?;
         self.expect(Token::Delimiter(';'))?;
 
-        self.add_statement(Stmt::ExpressionStatement(expr));
-
-        Ok(())
+        Ok(Stmt::ExpressionStatement(expr))
     }
 
     /// Generates a group expression, which is any expression inside of brackets.
@@ -287,7 +295,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Creates a variable declaration with a name (identifier) and a value (expression).
-    fn variable_declaration(&mut self) -> Result<(), ParserError> {
+    fn variable_declaration(&mut self) -> Result<Stmt, ParserError> {
         let name = match self.expect(Token::Identifier(""))? {
             Token::Identifier(i) => String::from(i),
             _ => {
@@ -307,9 +315,7 @@ impl<'a> Parser<'a> {
 
         self.expect(Token::Delimiter(';'))?;
 
-        self.add_statement(Stmt::VariableDeclaration { name, value });
-
-        Ok(())
+        Ok(Stmt::VariableDeclaration { name, value })
     }
 
     /// Attempts to convert n into a number and returns a wrapper around n.
@@ -428,6 +434,7 @@ impl<'a> Parser<'a> {
             Ok(token.unwrap())
         } else {
             // println!("[?] {:?} != {:?}", token, expected);
+            println!("{:?}", &self.tokens[0..self.current]);
             Err(ParserError::SyntaxError {
                 position: self.current,
                 message: format!(
