@@ -37,11 +37,6 @@ impl<'a> Parser<'a> {
             let n = self.next_statement()?;
 
             self.add_statement(n.unwrap());
-
-            match self.get_current_token() {
-                Some(Token::Delimiter(';')) => self.advance(),
-                _ => continue,
-            }
         }
 
         Ok(())
@@ -74,11 +69,11 @@ impl<'a> Parser<'a> {
 
             Some(Token::Delimiter(';')) => {
                 self.advance();
-                self.next_statement()
+                Ok(Some(Stmt::EmptyStatement))
             }
 
-            _ => {
-                dbg!("UNKNOWN_TOKEN");
+            _t => {
+                println!("UNKNOWN TOKEN: {:?}", _t);
                 Err(ParserError::UnknownToken {
                     position: self.current,
                 })
@@ -197,16 +192,22 @@ impl<'a> Parser<'a> {
     fn block_statement(&mut self) -> Result<Stmt, ParserError> {
         // Skip the '{'.
         self.advance();
+        println!("{:?}", self.get_current_token());
 
         let mut statements: Vec<Stmt> = vec![];
 
-        while self.current < self.tokens.len()
-            && self.get_current_token() != Some(Token::Delimiter('}'))
-            && self.get_current_token() != None
-        {
+        while self.current < self.tokens.len() && self.get_current_token() != None {
             let s = self.next_statement()?;
-            dbg!(&s);
             statements.push(s.unwrap());
+
+            match self.get_current_token() {
+                Some(Token::Delimiter('}')) => {
+                    self.advance();
+                    break;
+                }
+                None => panic!("Expected '}}' to close a compound statement."),
+                _ => continue,
+            }
         }
 
         Ok(Stmt::BlockStatement(statements))

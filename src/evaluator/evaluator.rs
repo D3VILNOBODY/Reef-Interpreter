@@ -63,11 +63,17 @@ impl<'a> Evaluator<'a> {
                 self.evaluate_variable_reassignment(name, value)
             }
             Some(Stmt::BlockStatement(statements)) => self.evaluate_block_statement(statements),
+            Some(Stmt::EmptyStatement) => self.evaluate_empty_statement(),
             Some(_stmt) => {
                 self.error(&format!("Unhandled statement {:?}", _stmt));
             }
             None => RuntimeType::None,
         };
+    }
+
+    fn evaluate_empty_statement(&mut self) -> RuntimeType {
+        self.advance();
+        RuntimeType::None
     }
 
     fn evaluate_expression_statement(&mut self, expr: Expr) -> RuntimeType {
@@ -130,7 +136,8 @@ impl<'a> Evaluator<'a> {
                 Boolean::True => {
                     self.evaluate_block_statement(match *body {
                         Stmt::BlockStatement(statements) => statements,
-                        _ => panic!("Expected a block statement"),
+                        _ => self
+                            .error("Expected a block statement following if statement condition"),
                     });
                 }
                 Boolean::False => self.advance(),
@@ -300,5 +307,15 @@ impl<'a> Evaluator<'a> {
 
     fn advance(&mut self) {
         self.ptr += 1;
+    }
+}
+
+/// Converts an expression to a boolean value. Useful for
+/// comparison expressions which require both sides to be
+/// booleans.
+fn expr_to_boolean(expr: &Expr) -> Boolean {
+    match *expr {
+        Expr::NilLiteral | Expr::Boolean(Boolean::False) => Boolean::False,
+        _ => Boolean::True,
     }
 }

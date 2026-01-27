@@ -16,6 +16,7 @@ pub enum BinaryExprOperator {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
+    EmptyStatement,
     BlockStatement(Vec<Stmt>), // { ...stmt }
     ExpressionStatement(Expr), // any expr;
     LogStatement(Vec<Expr>),   // log ...expr;
