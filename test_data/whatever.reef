@@ -1,3 +1,4 @@
-var x = 10;
-log 100, x, x * 90;
-"hello"; -- this is a comment
+var x = 10; --hi
+x = x + 1000.5;
+
+x;

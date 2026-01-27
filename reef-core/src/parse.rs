@@ -52,26 +52,83 @@ impl<'a> Parser<'a> {
             // Statements
             Some(Token::Keyword("var")) => Ok(Some(self.variable_declaration()?)),
             Some(Token::Keyword("log")) => Ok(Some(self.log_statement()?)),
+            Some(Token::Keyword("if")) => Ok(Some(self.if_statement()?)),
             Some(Token::Delimiter('{')) => Ok(Some(self.block_statement()?)),
 
             // Expression statements
             Some(Token::Keyword("true"))
             | Some(Token::Keyword("false"))
-            | Some(Token::Identifier(_))
             | Some(Token::String(_))
             | Some(Token::Number(_))
             | Some(Token::BinaryOperator('-'))
             | Some(Token::Delimiter('(')) => Ok(Some(self.expression_statement()?)),
 
-            Some(Token::Delimiter(';')) => {
-                self.advance();
-                Ok(None)
+            Some(Token::Identifier(_)) => {
+                let next = self.lookahead(1);
+
+                match next {
+                    Some(Token::Equals) => Ok(Some(self.variable_reassignment()?)),
+                    _ => Ok(Some(self.expression_statement()?)),
+                }
             }
 
-            _ => Err(ParserError::UnknownToken {
-                position: self.current,
-            }),
+            Some(Token::Delimiter(';')) => {
+                self.advance();
+                self.next_statement()
+            }
+
+            _ => {
+                dbg!("UNKNOWN_TOKEN");
+                Err(ParserError::UnknownToken {
+                    position: self.current,
+                })
+            }
         }
+    }
+
+    fn if_statement(&mut self) -> Result<Stmt, ParserError> {
+        let condition: Expr;
+        let body: Stmt;
+
+        self.expect(Token::Delimiter('('))?;
+        self.advance();
+
+        condition = self.expression()?;
+
+        self.expect(Token::Delimiter(')'))?;
+        self.expect(Token::Keyword("then"))?;
+        self.advance();
+
+        body = self.block_statement()?;
+
+        Ok(Stmt::IfStatement {
+            condition: condition,
+            body: Box::new(body),
+        })
+    }
+
+    fn variable_reassignment(&mut self) -> Result<Stmt, ParserError> {
+        let name = match self.get_current_token() {
+            Some(Token::Identifier(i)) => String::from(i),
+            _ => {
+                return Err(ParserError::SyntaxError {
+                    position: self.current,
+                    message: "Help".to_string(),
+                })
+            }
+        };
+
+        self.expect(Token::Equals)?;
+        self.advance();
+
+        let value = self.expression()?;
+
+        self.expect(Token::Delimiter(';'))?;
+
+        Ok(Stmt::VariableReassignment {
+            name: String::from(name),
+            value: value,
+        })
     }
 
     /// The base method for parsing any kind of expression.
@@ -81,7 +138,7 @@ impl<'a> Parser<'a> {
             Some(Token::Keyword("false")) => Ok(Expr::Boolean(Boolean::False)),
             Some(Token::Keyword("nil")) => Ok(Expr::NilLiteral),
             Some(Token::Delimiter('(')) => Ok(self.group_expression()?),
-            Some(Token::String(s)) => Ok(self.create_string_literal(s)),
+            Some(Token::String(s)) => Ok(create_string_literal(s)),
             Some(Token::BinaryOperator('-')) => {
                 // Skip past the '-'. May cause issues down the line but idc.
                 self.advance();
@@ -104,7 +161,8 @@ impl<'a> Parser<'a> {
 
                 match next {
                     Some(Token::BinaryOperator(_)) => Ok(self.binary_expression()?),
-                    _ => Ok(self.create_number_literal(n)),
+                    Some(Token::ComparisonOperator(_)) => Ok(self.comparison_expression()?),
+                    _ => Ok(create_number_literal(n)),
                 }
             }
             Some(Token::Identifier(ident)) => {
@@ -147,7 +205,8 @@ impl<'a> Parser<'a> {
             && self.get_current_token() != None
         {
             let s = self.next_statement()?;
-            statements.push(s.expect("hi"));
+            dbg!(&s);
+            statements.push(s.unwrap());
         }
 
         Ok(Stmt::BlockStatement(statements))
@@ -218,19 +277,23 @@ impl<'a> Parser<'a> {
 
     /// Generates a binary expression, returning Ok if it was successful.
     fn binary_expression(&mut self) -> Result<Expr, ParserError> {
+        let lhs: Expr;
+        let rhs: Expr;
+        let operator: BinaryExprOperator;
+
         // The left hand side of the binary expression. Creates a number from a Number token,
         // a string from a String token, and keeps track of identifiers. If the current token
         // isn't a valid type, it simply is turned into Nil.
-        let lhs = Box::new(match self.get_current_token() {
+        lhs = match self.get_current_token() {
             Some(Token::Keyword("true")) => Expr::Boolean(Boolean::True),
             Some(Token::Keyword("false")) => Expr::Boolean(Boolean::False),
             Some(Token::Delimiter('(')) => self.group_expression()?,
-            Some(Token::String(s)) => self.create_string_literal(s),
+            Some(Token::String(s)) => create_string_literal(s),
             Some(Token::BinaryOperator('-')) => {
                 // Skip past the '-'. May cause issues down the line but idc.
                 self.advance();
                 match self.get_current_token() {
-                    Some(Token::Number(n)) => self.create_number_literal(&*format!("-{}", n)),
+                    Some(Token::Number(n)) => create_number_literal(&*format!("-{}", n)),
                     _ => {
                         return Err(ParserError::SyntaxError {
                             position: self.current,
@@ -243,7 +306,7 @@ impl<'a> Parser<'a> {
                 let next = self.lookahead(1);
 
                 match next {
-                    _ => self.create_number_literal(n),
+                    _ => create_number_literal(n),
                 }
             }
             Some(Token::Identifier(ident)) => {
@@ -255,11 +318,11 @@ impl<'a> Parser<'a> {
                 }
             }
             _ => Expr::NilLiteral,
-        });
+        };
 
         // Creates a BinaryExprOperator containing the operator used in the binary expression.
         // Panics if the token isn't a binary operator.
-        let operator = match self.expect(Token::BinaryOperator(' '))? {
+        operator = match self.expect(Token::BinaryOperator(' '))? {
             Token::BinaryOperator(op) => match op {
                 '+' => BinaryExprOperator::Plus,
                 '-' => BinaryExprOperator::Minus,
@@ -285,11 +348,73 @@ impl<'a> Parser<'a> {
 
         // The right hand side of the expression. Could be any expression, so the base expression
         // method is used.
-        let rhs = Box::new(self.expression()?);
+        rhs = self.expression()?;
 
         Ok(Expr::BinaryExpression {
-            left_side: lhs,
-            right_side: rhs,
+            left_side: Box::new(lhs),
+            right_side: Box::new(rhs),
+            operator,
+        })
+    }
+
+    fn comparison_expression(&mut self) -> Result<Expr, ParserError> {
+        let lhs: Expr;
+        let rhs: Expr;
+        let operator: ComparisonOperator;
+
+        lhs = match self.get_current_token() {
+            Some(Token::Keyword("true")) => Expr::Boolean(Boolean::True),
+            Some(Token::Keyword("false")) => Expr::Boolean(Boolean::False),
+            Some(Token::Delimiter('(')) => self.group_expression()?,
+            Some(Token::String(s)) => create_string_literal(s),
+            Some(Token::BinaryOperator('-')) => {
+                // Skip past the '-'. May cause issues down the line but idc.
+                self.advance();
+                match self.get_current_token() {
+                    Some(Token::Number(n)) => create_number_literal(&*format!("-{}", n)),
+                    _ => {
+                        return Err(ParserError::SyntaxError {
+                            position: self.current,
+                            message: String::new(),
+                        })
+                    }
+                }
+            }
+            Some(Token::Number(n)) => {
+                let next = self.lookahead(1);
+
+                match next {
+                    _ => create_number_literal(n),
+                }
+            }
+            Some(Token::Identifier(ident)) => {
+                // TODO: abstract this to a different function
+                let next = self.lookahead(1);
+
+                match next {
+                    _ => Expr::Identifier(String::from(ident)),
+                }
+            }
+            _ => Expr::NilLiteral,
+        };
+
+        operator = match self.expect(Token::ComparisonOperator(ComparisonOperator::Or))? {
+            Token::ComparisonOperator(op) => op,
+            _t => {
+                return Err(ParserError::SyntaxError {
+                    position: self.current,
+                    message: String::new(),
+                })
+            }
+        };
+
+        self.advance();
+
+        rhs = self.expression()?;
+
+        Ok(Expr::ComparisonExpression {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
             operator,
         })
     }
@@ -316,23 +441,6 @@ impl<'a> Parser<'a> {
         self.expect(Token::Delimiter(';'))?;
 
         Ok(Stmt::VariableDeclaration { name, value })
-    }
-
-    /// Attempts to convert n into a number and returns a wrapper around n.
-    fn create_number_literal(&self, n: &str) -> Expr {
-        let p = n.parse::<f64>();
-
-        match p {
-            Ok(v) => Expr::NumberLiteral(v),
-            Err(e) => {
-                panic!("Error unwrapping {}: {:?}", n, e);
-            }
-        }
-    }
-
-    /// Creates a string literal wrapper which contains the string `s`.
-    fn create_string_literal(&self, s: &str) -> Expr {
-        Expr::StringLiteral(String::from(s))
     }
 
     /// Pushes `node` to `self.program`.
@@ -428,7 +536,8 @@ impl<'a> Parser<'a> {
         if token.is_some() && token.unwrap() == expected
             || mem::discriminant(&expected) == mem::discriminant(&Token::Identifier(""))
             || mem::discriminant(&expected) == mem::discriminant(&Token::BinaryOperator(' '))
-            || mem::discriminant(&expected) == mem::discriminant(&Token::ComparisonOperator(' '))
+            || mem::discriminant(&expected)
+                == mem::discriminant(&Token::ComparisonOperator(ComparisonOperator::Or))
         {
             // println!("[?] {:?} == {:?}", token, expected);
             Ok(token.unwrap())
@@ -446,4 +555,21 @@ impl<'a> Parser<'a> {
             })
         }
     }
+}
+
+/// Attempts to convert n into a number and returns a wrapper around n.
+fn create_number_literal(n: &str) -> Expr {
+    let p = n.parse::<f64>();
+
+    match p {
+        Ok(v) => Expr::NumberLiteral(v),
+        Err(e) => {
+            panic!("Error unwrapping {}: {:?}", n, e);
+        }
+    }
+}
+
+/// Creates a string literal wrapper which contains the string `s`.
+fn create_string_literal(s: &str) -> Expr {
+    Expr::StringLiteral(String::from(s))
 }

@@ -1,7 +1,6 @@
-/target
-.vscode/
+**/.vscode/
 .idea/
 *.log
-.idea/
-*/**/target/
-*/**/.DS_Store
+**/.idea/
+**/target/
+**/.DS_Store

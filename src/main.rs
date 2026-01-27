@@ -11,6 +11,7 @@ use std::io::Write;
 use std::{fmt::Display, fs, io, path};
 
 mod evaluator;
+use evaluator::evaluator as eval;
 
 const LEXER_DEBUG_FILE: &str = "reef_lexer.log";
 const PARSER_DEBUG_FILE: &str = "reef_parser.log";
@@ -68,7 +69,7 @@ fn evaluate_file(args: &Args, path: path::PathBuf) {
 fn run(source_code: &str, debug: u8) {
     let mut scanner: lex::Scanner;
     let mut parser: parse::Parser;
-    let mut evaluator: evaluator::Evaluator;
+    let mut evaluator: eval::Evaluator;
 
     scanner = lex::Scanner::new(source_code, debug);
     scanner.scan();
@@ -108,8 +109,10 @@ fn run(source_code: &str, debug: u8) {
 
     // dbg!(&parser.program);
 
-    evaluator = evaluator::Evaluator::new(parser.program, debug);
+    evaluator = eval::Evaluator::new(parser.program, debug);
     evaluator.evaluate_program();
+
+    // println!("{}", evaluator.get_main_scope());
 }
 
 fn write_to_debug_file<T: Display>(path: &path::Path, data: T) -> Result<(), String> {

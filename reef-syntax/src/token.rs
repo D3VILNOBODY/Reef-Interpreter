@@ -1,3 +1,4 @@
+use crate::common::ComparisonOperator;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// Different types of tokens which can be returned by the scanner.
@@ -8,9 +9,9 @@ pub enum Token<'a> {
     Keyword(&'a str),
     Number(&'a str),
     Identifier(&'a str),
-    Delimiter(char),          // (, ), [, ], {, }, ;, :
-    BinaryOperator(char),     // +, -, /, *
-    ComparisonOperator(char), // <, >
+    Delimiter(char),                        // (, ), [, ], {, }, ;, :
+    BinaryOperator(char),                   // +, -, /, *
+    ComparisonOperator(ComparisonOperator), // <, >, !=
     Illegal(char),
     Equals,
     EndOfFile,

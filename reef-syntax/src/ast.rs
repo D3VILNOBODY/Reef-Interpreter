@@ -1,15 +1,6 @@
 use crate::common::*;
 
 #[derive(Debug, Clone)]
-pub enum ComparisonOperator {
-    LessThan,
-    GreaterThan,
-    EqualTo,
-    LessThanOrEqualTo,
-    GreaterThanOrEqualTo,
-}
-
-#[derive(Debug, Clone)]
 pub enum UnaryOperation {
     Minus,
 }
@@ -29,6 +20,10 @@ pub enum Stmt {
     ExpressionStatement(Expr), // any expr;
     LogStatement(Vec<Expr>),   // log ...expr;
     ReturnStatement(Expr),     // return expr;
+    IfStatement {
+        condition: Expr,
+        body: Box<Stmt>,
+    }, // if (condition) then { ...stmt }
     ForLoop {
         condition: Expr,
         body: Box<Stmt>,
@@ -37,6 +32,10 @@ pub enum Stmt {
         name: String,
         value: Expr, // might change this to Option<Expr> to allow for uninitialised vars
     }, // var var_name = expr;
+    VariableReassignment {
+        name: String,
+        value: Expr,
+    },
     FunctionDeclaration {
         name: String,
         parameters: Vec<FunctionParameter>,

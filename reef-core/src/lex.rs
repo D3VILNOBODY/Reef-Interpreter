@@ -1,3 +1,4 @@
+use reef_syntax::common::ComparisonOperator;
 use reef_syntax::token::Token;
 use std::collections::HashMap;
 
@@ -23,7 +24,6 @@ impl<'a> Scanner<'a> {
         // Populate the keyword list with the language keywords.
         keyword_map.insert("continue", "continue");
         keyword_map.insert("struct", "struct");
-        keyword_map.insert("elseif", "elseif");
         keyword_map.insert("return", "return");
         keyword_map.insert("typeof", "typeof");
         keyword_map.insert("false", "false");
@@ -82,12 +82,54 @@ impl<'a> Scanner<'a> {
                     self.advance();
                 }
                 '<' | '>' => {
-                    self.tokens.push(Token::ComparisonOperator(c));
                     self.advance();
+
+                    let mut buf = String::new();
+                    buf.push(c);
+
+                    match self.get_current_char() {
+                        Some('=') => buf.push('='),
+                        _ => {}
+                    }
+
+                    match buf.as_str() {
+                        "<" => self
+                            .tokens
+                            .push(Token::ComparisonOperator(ComparisonOperator::LessThan)),
+                        ">" => self
+                            .tokens
+                            .push(Token::ComparisonOperator(ComparisonOperator::GreaterThan)),
+                        "<=" => self.tokens.push(Token::ComparisonOperator(
+                            ComparisonOperator::LessThanOrEqualTo,
+                        )),
+                        ">=" => self.tokens.push(Token::ComparisonOperator(
+                            ComparisonOperator::GreaterThanOrEqualTo,
+                        )),
+                        _ => {}
+                    }
                 }
                 '=' => {
-                    self.tokens.push(Token::Equals);
                     self.advance();
+                    match self.get_current_char() {
+                        Some('=') => {
+                            self.advance();
+                            self.tokens
+                                .push(Token::ComparisonOperator(ComparisonOperator::EqualTo))
+                        }
+                        _ => self.tokens.push(Token::Equals),
+                    }
+                }
+                '!' => {
+                    self.advance();
+                    dbg!(self.get_current_char());
+                    match self.get_current_char() {
+                        Some('=') => {
+                            self.advance();
+                            self.tokens
+                                .push(Token::ComparisonOperator(ComparisonOperator::NotEqualTo))
+                        }
+                        _ => panic!("Expected an equals to follow an exclamation mark"),
+                    }
                 }
                 '.' | ',' | ';' | ':' | '{' | '}' | '(' | ')' => {
                     self.tokens.push(Token::Delimiter(c));
