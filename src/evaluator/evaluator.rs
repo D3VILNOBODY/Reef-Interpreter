@@ -9,7 +9,7 @@ use super::types::*;
 
 /// The evaluator is the part of the interpreter that actually
 /// runs (evaluates) the code. It takes an input of statements
-/// and evaluates each thing as it reads it.
+/// and evaluates each statement as it reads it.
 #[derive(Debug)]
 pub struct Evaluator<'a> {
     pub program: Vec<Stmt>,
@@ -38,6 +38,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
+    #[allow(unused)]
     pub fn get_main_scope(&self) -> &Scope<'a> {
         &self.scope
     }
