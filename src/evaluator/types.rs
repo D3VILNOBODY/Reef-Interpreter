@@ -8,7 +8,6 @@ pub enum RuntimeType {
     String(String),
     Boolean(Boolean),
     None,
-    Error(String),
 }
 
 #[derive(Debug)]
@@ -70,7 +69,6 @@ impl Display for RuntimeType {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtRes {
         match self {
             Self::None => write!(f, "None")?,
-            Self::Error(msg) => write!(f, "Error: {msg}")?,
             Self::Number(number) => write!(f, "{}", number)?,
             Self::String(string) => write!(f, "{}", string)?,
             Self::Boolean(boolean) => write!(
